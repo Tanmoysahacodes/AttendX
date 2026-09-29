@@ -2,7 +2,15 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  const player = await prisma.user.findFirst({ where: { jerseyNumber: '18' } });
-  console.log('Player 18:', player);
+  try {
+    const userCount = await prisma.user.count();
+    const sessionCount = await prisma.attendanceSession.count();
+    const recordCount = await prisma.attendanceRecord.count();
+    console.log(`Users: ${userCount}, Sessions: ${sessionCount}, Records: ${recordCount}`);
+  } catch (e) {
+    console.error('DB Error:', e.message);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
-main().catch(console.error).finally(() => prisma.$disconnect());
+main();
