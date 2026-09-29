@@ -68,7 +68,23 @@ console.log('[STARTUP 5/6] Configuring Express...');
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173', credentials: true }));
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.CORS_ORIGIN,
+  'https://attend-x-woad.vercel.app'
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.some(o => o && origin.startsWith(o))) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 app.use(express.json());
 app.use(cookieParser());
 
