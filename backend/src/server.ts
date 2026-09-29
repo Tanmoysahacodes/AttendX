@@ -7,7 +7,6 @@ console.log(`  Platform: ${process.platform}`);
 console.log(`  CWD: ${process.cwd()}`);
 
 import express from 'express';
-import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 
@@ -74,10 +73,28 @@ const allowedOrigins = [
   'https://attend-x-woad.vercel.app'
 ];
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header(
+      'Access-Control-Allow-Methods',
+      'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'
+    );
+    res.header(
+      'Access-Control-Allow-Headers',
+      'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+    );
+  }
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  next();
+});
 app.use(express.json());
 app.use(cookieParser());
 
