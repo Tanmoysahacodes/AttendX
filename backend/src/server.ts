@@ -71,13 +71,13 @@ const port = Number(process.env.PORT) || 3000;
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  process.env.CORS_ORIGIN,
+  process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.replace(/\/$/, '') : undefined,
   'https://attend-x-woad.vercel.app'
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.some(o => o && origin.startsWith(o))) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
