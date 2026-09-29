@@ -20,6 +20,10 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'AttendX API' });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/stats', statsRoutes);
@@ -34,4 +38,4 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
   res.status(err.status || 500).json({ success: false, message: err.message || 'Internal server error' });
 });
 
-app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
+app.listen(port as number, '0.0.0.0', () => console.log(`🚀 Server running on port ${port}`));
