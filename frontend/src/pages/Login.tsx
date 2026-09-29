@@ -16,6 +16,20 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const handleError = (err: any) => {
+    if (!err.response) {
+      setError('Unable to connect to server.');
+    } else if (err.response.status === 401) {
+      setError('Invalid credentials.');
+    } else if (err.response.status === 404) {
+      setError('Endpoint not found (404).');
+    } else if (err.response.status >= 500) {
+      setError('Server error. Please try again.');
+    } else {
+      setError(err.response?.data?.message || 'Login failed.');
+    }
+  };
+
   const handlePlayerLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -25,7 +39,7 @@ export default function Login() {
       login(res.data.data.token, res.data.data.user);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Check your name and jersey number.');
+      handleError(err);
     } finally {
       setLoading(false);
     }
@@ -40,7 +54,7 @@ export default function Login() {
       login(res.data.data.token, res.data.data.user);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid credentials.');
+      handleError(err);
     } finally {
       setLoading(false);
     }
