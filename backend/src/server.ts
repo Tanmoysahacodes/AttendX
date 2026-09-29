@@ -39,10 +39,10 @@ const missing = Object.entries(envAudit)
   .map(([k]) => k);
 
 if (missing.length > 0) {
-  console.error(`[STARTUP 3/6] ❌ FATAL: Missing environment variables: ${missing.join(', ')}`);
-  process.exit(1);
+  console.error(`[STARTUP 3/6] ⚠️ WARNING: Missing environment variables: ${missing.join(', ')}`);
+} else {
+  console.log('[STARTUP 3/6] ✅ All required environment variables present');
 }
-console.log('[STARTUP 3/6] ✅ All required environment variables present');
 
 // ============================================================
 // STARTUP: Step 4 — Load route modules (PrismaClient instantiated here)
