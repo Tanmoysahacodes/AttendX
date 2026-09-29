@@ -1,0 +1,165 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  PLAYER
+  CAPTAIN
+  COACH
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
+enum SessionStatus {
+  OPEN
+  FINALIZED
+  DAY_OFF
+}
+
+enum SessionType {
+  PRACTICE
+  MATCH
+  TOURNAMENT
+  FITNESS
+  MEETING
+  OTHER
+}
+
+enum EventType {
+  PRACTICE
+  MATCH
+  TOURNAMENT
+  FITNESS
+  MEETING
+  OTHER
+}
+
+enum AnnouncementPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model User {
+  id                 String      @id @default(uuid())
+  name               String
+  username           String?     @unique
+  jerseyNumber       String?     @unique
+  position           String?
+  description        String?
+  year               String?
+  course             String?
+  phone              String?
+  avatar             String?
+  passwordHash       String?
+  role               Role        @default(PLAYER)
+  status             UserStatus  @default(ACTIVE)
+  lastLoginAt        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  attendanceRecords  AttendanceRecord[]
+  createdSessions    AttendanceSession[] @relation("CreatedSessions")
+  finalizedSessions  AttendanceSession[] @relation("FinalizedSessions")
+  markedRecords      AttendanceRecord[]  @relation("MarkedRecords")
+  auditLogs          AuditLog[]
+  createdEvents      ScheduleEvent[]     @relation("CreatedEvents")
+  createdAnnouncements Announcement[]    @relation("CreatedAnnouncements")
+}
+
+model AttendanceSession {
+  id            String        @id @default(uuid())
+  date          DateTime      @db.Date
+  sessionType   SessionType   @default(PRACTICE)
+  status        SessionStatus @default(OPEN)
+  title         String?
+  notes         String?
+  dayOffReason  String?
+  location      String?
+  startTime     String?
+
+  createdById   String
+  createdBy     User          @relation("CreatedSessions", fields: [createdById], references: [id])
+
+  finalizedById String?
+  finalizedBy   User?         @relation("FinalizedSessions", fields: [finalizedById], references: [id])
+
+  finalizedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  records       AttendanceRecord[]
+
+  @@unique([date])
+}
+
+model AttendanceRecord {
+  id         String           @id @default(uuid())
+  sessionId  String
+  session    AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  playerId   String
+  player     User             @relation(fields: [playerId], references: [id])
+
+  status     AttendanceStatus
+  markedAt   DateTime         @default(now())
+
+  markedById String
+  markedBy   User             @relation("MarkedRecords", fields: [markedById], references: [id])
+
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([sessionId, playerId])
+}
+
+model ScheduleEvent {
+  id          String    @id @default(uuid())
+  title       String
+  type        EventType @default(PRACTICE)
+  date        DateTime  @db.Date
+  startTime   String?
+  endTime     String?
+  location    String?
+  notes       String?
+  createdById String
+  createdBy   User      @relation("CreatedEvents", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Announcement {
+  id          String               @id @default(uuid())
+  title       String
+  message     String
+  priority    AnnouncementPriority @default(NORMAL)
+  createdById String
+  createdBy   User                 @relation("CreatedAnnouncements", fields: [createdById], references: [id])
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
