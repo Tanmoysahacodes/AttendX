@@ -61,7 +61,7 @@ router.post('/login', async (req, res) => {
           { username: username },
           { name: { equals: username, mode: 'insensitive' } },
         ],
-        role: { in: ['ADMIN', 'COACH', 'CAPTAIN'] },
+        role: { in: ['ADMIN', 'COACH', 'SPORTS_OFFICER', 'CAPTAIN'] },
       },
     });
 

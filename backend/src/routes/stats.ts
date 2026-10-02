@@ -105,7 +105,7 @@ router.get('/trend', requireAuth, async (req, res) => {
 });
 
 // ─── Player analytics (all players with attendance data) ─────────────────────
-router.get('/player-analytics', requireAuth, requireRole('ADMIN', 'COACH', 'CAPTAIN'), async (req, res) => {
+router.get('/player-analytics', requireAuth, requireRole('ADMIN', 'COACH', 'SPORTS_OFFICER', 'CAPTAIN'), async (req, res) => {
   try {
     const players = await prisma.user.findMany({
       where: { 
@@ -146,42 +146,56 @@ router.get('/player-analytics', requireAuth, requireRole('ADMIN', 'COACH', 'CAPT
 });
 
 // ─── CSV export ───────────────────────────────────────────────────────────────
-router.get('/export/csv', requireAuth, requireRole('ADMIN', 'COACH'), async (req, res) => {
+router.get('/export/csv', requireAuth, requireRole('ADMIN', 'COACH', 'SPORTS_OFFICER'), async (req, res) => {
   try {
-    const { from, to } = req.query;
-    let dateFilter: any = {};
-    if (from && to) {
-      dateFilter = { gte: new Date(from as string), lte: new Date(to as string) };
+    const { sessionId } = req.query;
+    if (!sessionId || typeof sessionId !== 'string') {
+      return res.status(400).json({ success: false, message: 'sessionId is required' });
     }
 
-    const records = await prisma.attendanceRecord.findMany({
-      where: Object.keys(dateFilter).length > 0 ? { session: { date: dateFilter } } : undefined,
-      include: {
-        player: { select: { name: true, jerseyNumber: true } },
-        session: true,
-        markedBy: { select: { name: true } },
-      },
-      orderBy: { session: { date: 'desc' } },
+    const session = await prisma.attendanceSession.findUnique({
+      where: { id: sessionId },
     });
 
-    const header = 'Date,Session Type,Player Name,Jersey Number,Status,Marked By,Marked At';
-    const rows = records.map(r => {
-      const d = r.session.date;
-      const dateStr = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth()+1).padStart(2, '0')}-${d.getFullYear()}`;
-      const timeStr = `${String(r.markedAt.getHours()).padStart(2, '0')}:${String(r.markedAt.getMinutes()).padStart(2, '0')}`;
-      return [
-        dateStr,
-        r.session.sessionType || 'PRACTICE',
-        r.player.name,
-        r.player.jerseyNumber || '',
-        r.status,
-        r.markedBy.name,
-        timeStr,
-      ].join(',');
-    });
+    if (!session) {
+      return res.status(404).json({ success: false, message: 'Session not found' });
+    }
+
+    const d = session.date;
+    const dateStr = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+
+    let header = '';
+    let rows: string[] = [];
+
+    if (session.status === 'DAY_OFF') {
+      header = 'Date,Session Status,Reason';
+      // Quote the reason in case it contains commas
+      const safeReason = session.dayOffReason ? `"${session.dayOffReason.replace(/"/g, '""')}"` : '';
+      rows = [[dateStr, 'DAY_OFF', safeReason].join(',')];
+    } else {
+      const records = await prisma.attendanceRecord.findMany({
+        where: { sessionId: session.id },
+        include: {
+          player: { select: { name: true, jerseyNumber: true } },
+          markedBy: { select: { name: true } },
+        },
+      });
+
+      header = 'Date,Session Status,Player Name,Jersey Number,Attendance Status,Marked By';
+      rows = records.map(r => {
+        return [
+          dateStr,
+          session.status,
+          `"${r.player.name.replace(/"/g, '""')}"`,
+          r.player.jerseyNumber || '',
+          r.status,
+          `"${r.markedBy.name.replace(/"/g, '""')}"`,
+        ].join(',');
+      });
+    }
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="attendance.csv"');
+    res.setHeader('Content-Disposition', `attachment; filename="attendance_${dateStr}.csv"`);
     res.send([header, ...rows].join('\n'));
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });

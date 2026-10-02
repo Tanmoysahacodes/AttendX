@@ -48,7 +48,7 @@ router.get('/session/today', requireAuth, async (req, res) => {
 });
 
 // ─── Create session (explicit) ────────────────────────────────────────────────
-router.post('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'ADMIN'), async (req, res) => {
+router.post('/sessions', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const { date, sessionType, title, notes, location, startTime } = z.object({
       date: z.string().optional(),
@@ -90,7 +90,7 @@ router.post('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'ADMIN'), 
 });
 
 // ─── Get all sessions ─────────────────────────────────────────────────────────
-router.get('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'ADMIN'), async (req, res) => {
+router.get('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const sessions = await prisma.attendanceSession.findMany({
       orderBy: { date: 'desc' },
@@ -148,7 +148,7 @@ router.get('/sessions/:id', requireAuth, async (req, res) => {
 });
 
 // ─── Mark/update attendance ───────────────────────────────────────────────────
-router.post('/mark', requireAuth, requireRole('CAPTAIN', 'COACH', 'ADMIN'), async (req, res) => {
+router.post('/mark', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const { date, sessionId, records, finalize } = z.object({
       date: z.string().optional(),
@@ -178,8 +178,8 @@ router.post('/mark', requireAuth, requireRole('CAPTAIN', 'COACH', 'ADMIN'), asyn
     if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
     if (session.status === 'DAY_OFF') return res.status(400).json({ success: false, message: 'Cannot mark attendance for a Day Off session.' });
     // Finalized sessions: only ADMIN can update
-    if (session.status === 'FINALIZED' && req.user.role !== 'ADMIN' && req.user.role !== 'COACH' && req.user.role !== 'CAPTAIN') {
-      return res.status(403).json({ success: false, message: 'Session is finalized. Only Admin/Coach/Captain can update.' });
+    if (session.status === 'FINALIZED' && req.user.role !== 'ADMIN' && req.user.role !== 'COACH' && req.user.role !== 'SPORTS_OFFICER') {
+      return res.status(403).json({ success: false, message: 'Session is finalized. Only Admin/Coach/Sports Officer can update.' });
     }
 
     // Upsert all records
@@ -230,7 +230,7 @@ router.post('/mark', requireAuth, requireRole('CAPTAIN', 'COACH', 'ADMIN'), asyn
 });
 
 // ─── Finalize session ─────────────────────────────────────────────────────────
-router.post('/sessions/:id/finalize', requireAuth, requireRole('CAPTAIN', 'COACH', 'ADMIN'), async (req, res) => {
+router.post('/sessions/:id/finalize', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const session = await prisma.attendanceSession.update({
       where: { id: req.params.id },
@@ -246,7 +246,7 @@ router.post('/sessions/:id/finalize', requireAuth, requireRole('CAPTAIN', 'COACH
 });
 
 // ─── Reopen session (for updates) ────────────────────────────────────────────
-router.post('/sessions/:id/reopen', requireAuth, requireRole('CAPTAIN', 'COACH', 'ADMIN'), async (req, res) => {
+router.post('/sessions/:id/reopen', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const session = await prisma.attendanceSession.update({
       where: { id: req.params.id },
@@ -259,7 +259,7 @@ router.post('/sessions/:id/reopen', requireAuth, requireRole('CAPTAIN', 'COACH',
 });
 
 // ─── Mark Day Off ─────────────────────────────────────────────────────────────
-router.post('/sessions/:id/dayoff', requireAuth, requireRole('CAPTAIN', 'COACH', 'ADMIN'), async (req, res) => {
+router.post('/sessions/:id/dayoff', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const { reason } = z.object({
       reason: z.string().min(1, 'Day off reason is required'),
@@ -281,7 +281,7 @@ router.post('/sessions/:id/dayoff', requireAuth, requireRole('CAPTAIN', 'COACH',
 });
 
 // ─── Create Day Off (without existing session) ────────────────────────────────
-router.post('/dayoff', requireAuth, requireRole('CAPTAIN', 'COACH', 'ADMIN'), async (req, res) => {
+router.post('/dayoff', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const { date, reason } = z.object({
       date: z.string().optional(),

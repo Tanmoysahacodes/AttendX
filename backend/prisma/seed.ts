@@ -68,6 +68,22 @@ async function main() {
     },
   });
 
+  // Seed Sports Officer
+  const soUsername = 'sports.officer';
+  const soPassword = 'sports@123';
+  const soHash = await bcrypt.hash(soPassword, 10);
+  await prisma.user.upsert({
+    where: { username: soUsername },
+    update: { passwordHash: soHash, status: 'ACTIVE', role: 'SPORTS_OFFICER' },
+    create: {
+      name: 'Sports Officer',
+      username: soUsername,
+      passwordHash: soHash,
+      role: 'SPORTS_OFFICER',
+      status: 'ACTIVE',
+    },
+  });
+
   // Seed 15 other players
   for (const p of players) {
     await prisma.user.upsert({

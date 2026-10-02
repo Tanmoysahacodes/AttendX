@@ -148,9 +148,23 @@ router.get('/:id/attendance', requireAuth, async (req, res) => {
     const records = await prisma.attendanceRecord.findMany({
       where: { playerId: req.params.id },
       include: { session: { select: { id: true, date: true, sessionType: true, status: true, dayOffReason: true } }, markedBy: { select: { name: true, role: true } } },
-      orderBy: { session: { date: 'desc' } },
     });
-    res.json({ success: true, data: records });
+    const dayOffSessions = await prisma.attendanceSession.findMany({
+      where: { status: 'DAY_OFF' },
+      select: { id: true, date: true, sessionType: true, status: true, dayOffReason: true, finalizedBy: { select: { name: true, role: true } } }
+    });
+    const combined = [
+      ...records,
+      ...dayOffSessions.map(session => ({
+        id: `dayoff-${session.id}`,
+        playerId: req.params.id,
+        status: 'DAY_OFF',
+        session: { id: session.id, date: session.date, sessionType: session.sessionType, status: session.status, dayOffReason: session.dayOffReason },
+        markedBy: session.finalizedBy || { name: 'System', role: 'ADMIN' }
+      }))
+    ];
+    combined.sort((a, b) => new Date(b.session.date).getTime() - new Date(a.session.date).getTime());
+    res.json({ success: true, data: combined });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });
   }

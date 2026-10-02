@@ -35,7 +35,7 @@ router.get('/upcoming', requireAuth, async (req, res) => {
 });
 
 // ─── Create event (Coach/Admin) ───────────────────────────────────────────────
-router.post('/', requireAuth, requireRole('COACH', 'ADMIN'), async (req, res) => {
+router.post('/', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const data = z.object({
       title: z.string().min(1),
@@ -59,7 +59,7 @@ router.post('/', requireAuth, requireRole('COACH', 'ADMIN'), async (req, res) =>
 });
 
 // ─── Delete event ─────────────────────────────────────────────────────────────
-router.delete('/:id', requireAuth, requireRole('COACH', 'ADMIN'), async (req, res) => {
+router.delete('/:id', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     await prisma.scheduleEvent.delete({ where: { id: req.params.id } });
     res.json({ success: true, message: 'Event deleted.' });
