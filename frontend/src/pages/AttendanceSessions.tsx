@@ -37,7 +37,7 @@ export default function AttendanceSessions() {
           <h1 className="text-2xl font-bold text-zinc-50">Attendance Sessions</h1>
           <p className="text-zinc-500 text-sm mt-1">All historical and current practice sessions.</p>
         </div>
-        {(role === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN') && (
+        {(role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && (
           <div className="flex gap-2">
             <Link to="/attendance" className="btn-secondary btn-sm">
               <CalendarDays className="w-4 h-4" /> Today
@@ -74,7 +74,7 @@ export default function AttendanceSessions() {
                 {sessions.length === 0 ? (
                   <tr><td colSpan={8} className="p-10 text-center text-zinc-500">
                     No sessions yet.
-                    {(role === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN') && (
+                    {(role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && (
                       <button onClick={() => setShowCreateModal(true)} className="btn-primary ml-4">
                         <Plus className="w-4 h-4" /> Create First Session
                       </button>
@@ -122,7 +122,7 @@ export default function AttendanceSessions() {
                             className="btn-ghost btn-sm text-xs"
                           >View</button>
                         )}
-                        {s.status === 'OPEN' && (role === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN') && (
+                        {s.status === 'OPEN' && (role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && (
                           <Link
                             to={`/attendance?date=${s.date.split('T')[0]}`}
                             className="btn-primary btn-sm text-xs"
@@ -130,7 +130,7 @@ export default function AttendanceSessions() {
                             Mark
                           </Link>
                         )}
-                        {s.status === 'FINALIZED' && (role === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN') && (
+                        {s.status === 'FINALIZED' && (role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && (
                           <Link
                             to={`/attendance?date=${s.date.split('T')[0]}`}
                             className="btn-secondary btn-sm text-xs"

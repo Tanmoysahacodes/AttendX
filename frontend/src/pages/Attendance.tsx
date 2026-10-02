@@ -57,8 +57,8 @@ export default function Attendance() {
 
   const isDayOff = session?.status === 'DAY_OFF';
   const isFinalized = session?.status === 'FINALIZED';
-  const canEdit = role === 'ADMIN' || (!isFinalized && !isDayOff && (role === 'CAPTAIN' || role === 'COACH'));
-  const canUpdate = (role === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN') && isFinalized;
+  const canEdit = role === 'ADMIN' || (!isFinalized && !isDayOff && (role === 'COACH' || role === 'SPORTS_OFFICER'));
+  const canUpdate = (role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && isFinalized;
 
   const toggleStatus = (playerId: string, target: 'PRESENT' | 'ABSENT') => {
     if (!canEdit) return;
@@ -193,7 +193,7 @@ export default function Attendance() {
         <div className="card p-8 text-center">
           <p className="text-zinc-400 mb-4">No session created for {formatDate(selectedDate)}.</p>
           <div className="flex gap-3 justify-center flex-wrap">
-            {(role === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN') && (
+            {(role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && (
               <>
                 <button onClick={() => createSessionMutation.mutate()} disabled={createSessionMutation.isPending} className="btn-primary">
                   <Plus className="w-4 h-4" /> Create Practice Session
@@ -230,11 +230,11 @@ export default function Attendance() {
           {isFinalized && !canEdit && (
             <div className="mb-4 p-3 bg-green-900/20 border border-green-900/40 text-green-400 rounded-lg flex items-center gap-2 text-sm">
               <Lock className="w-4 h-4 flex-shrink-0" />
-              Session finalized.{((role as string) === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN') && ' Click "Update" to make changes.'}
+              Session finalized.{((role as string) === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && ' Click "Update" to make changes.'}
             </div>
           )}
 
-          {session.status === 'FINALIZED' && (role === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN') && (
+          {session.status === 'FINALIZED' && (role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && (
             <div className="mb-4 p-3 bg-amber-900/20 border border-amber-900/40 text-amber-400 rounded-lg flex items-center gap-2 text-sm">
               <ShieldAlert className="w-4 h-4 flex-shrink-0" />
               Viewing finalized attendance. Click <strong>"Update"</strong> above to edit.

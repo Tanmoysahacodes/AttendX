@@ -56,15 +56,15 @@ function App() {
             
             <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
-              <Route path="attendance" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'ADMIN']}><Attendance /></ProtectedRoute>} />
-              <Route path="sessions" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'ADMIN']}><AttendanceSessions /></ProtectedRoute>} />
-              <Route path="sessions/:id" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'ADMIN']}><SessionDetails /></ProtectedRoute>} />
+              <Route path="attendance" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><Attendance /></ProtectedRoute>} />
+              <Route path="sessions" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><AttendanceSessions /></ProtectedRoute>} />
+              <Route path="sessions/:id" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><SessionDetails /></ProtectedRoute>} />
               <Route path="my-attendance" element={<ProtectedRoute allowedRoles={['PLAYER']}><MyAttendance /></ProtectedRoute>} />
-              <Route path="players" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'ADMIN']}><Players /></ProtectedRoute>} />
+              <Route path="players" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><Players /></ProtectedRoute>} />
               <Route path="schedule" element={<Schedule />} />
               <Route path="announcements" element={<Announcements />} />
-              <Route path="analytics" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'ADMIN']}><Analytics /></ProtectedRoute>} />
-              <Route path="reports" element={<ProtectedRoute allowedRoles={['COACH', 'ADMIN']}><Reports /></ProtectedRoute>} />
+              <Route path="analytics" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><Analytics /></ProtectedRoute>} />
+              <Route path="reports" element={<ProtectedRoute allowedRoles={['COACH', 'SPORTS_OFFICER', 'ADMIN']}><Reports /></ProtectedRoute>} />
               <Route path="staff" element={<ProtectedRoute allowedRoles={['ADMIN']}><Staff /></ProtectedRoute>} />
               <Route path="audit" element={<ProtectedRoute allowedRoles={['ADMIN']}><AuditLogs /></ProtectedRoute>} />
               <Route path="about" element={<About />} />

@@ -4,7 +4,7 @@ import api from '../lib/api';
 export interface AuthUser {
   id: string;
   name: string;
-  role: 'PLAYER' | 'CAPTAIN' | 'COACH' | 'ADMIN';
+  role: 'PLAYER' | 'CAPTAIN' | 'COACH' | 'SPORTS_OFFICER' | 'ADMIN';
   status: string;
   jerseyNumber?: string | null;
   username?: string | null;

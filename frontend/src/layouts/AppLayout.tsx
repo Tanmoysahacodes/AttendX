@@ -16,18 +16,18 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard',    to: '/',             icon: LayoutDashboard, roles: ['PLAYER', 'CAPTAIN', 'COACH', 'ADMIN'] },
-  { label: 'Today\'s Attendance',to: '/attendance',   icon: ClipboardList,   roles: ['CAPTAIN', 'COACH', 'ADMIN'] },
-  { label: 'Sessions',     to: '/sessions',     icon: CalendarDays,    roles: ['CAPTAIN', 'COACH', 'ADMIN'] },
+  { label: 'Dashboard',    to: '/',             icon: LayoutDashboard, roles: ['PLAYER', 'CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'] },
+  { label: 'Today\'s Attendance',to: '/attendance',   icon: ClipboardList,   roles: ['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'] },
+  { label: 'Sessions',     to: '/sessions',     icon: CalendarDays,    roles: ['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'] },
   { label: 'My Attendance',to: '/my-attendance',icon: Activity,        roles: ['PLAYER'] },
-  { label: 'Players',      to: '/players',      icon: Users,           roles: ['CAPTAIN', 'COACH', 'ADMIN'] },
-  { label: 'Schedule',     to: '/schedule',     icon: CalendarDays,    roles: ['PLAYER', 'CAPTAIN', 'COACH', 'ADMIN'] },
-  { label: 'Announcements',to: '/announcements',icon: Megaphone,       roles: ['PLAYER', 'CAPTAIN', 'COACH', 'ADMIN'] },
-  { label: 'Analytics',    to: '/analytics',    icon: BarChart3,       roles: ['CAPTAIN', 'COACH', 'ADMIN'] },
-  { label: 'Reports',      to: '/reports',      icon: ScrollText,      roles: ['COACH', 'ADMIN'] },
+  { label: 'Players',      to: '/players',      icon: Users,           roles: ['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'] },
+  { label: 'Schedule',     to: '/schedule',     icon: CalendarDays,    roles: ['PLAYER', 'CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'] },
+  { label: 'Announcements',to: '/announcements',icon: Megaphone,       roles: ['PLAYER', 'CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'] },
+  { label: 'Analytics',    to: '/analytics',    icon: BarChart3,       roles: ['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'] },
+  { label: 'Reports',      to: '/reports',      icon: ScrollText,      roles: ['COACH', 'SPORTS_OFFICER', 'ADMIN'] },
   { label: 'Staff',        to: '/staff',        icon: UserCog,         roles: ['ADMIN'] },
   { label: 'Audit Logs',   to: '/audit',        icon: ScrollText,      roles: ['ADMIN'] },
-  { label: 'About',        to: '/about',        icon: Info,            roles: ['PLAYER', 'CAPTAIN', 'COACH', 'ADMIN'] },
+  { label: 'About',        to: '/about',        icon: Info,            roles: ['PLAYER', 'CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'] },
 ];
 
 function NavItemLink({ item, collapsed, onClick }: { item: NavItem; collapsed: boolean; onClick?: () => void }) {

@@ -32,8 +32,8 @@ export default function SessionDetails() {
   const total = session.records.length;
   const pct = total > 0 ? Math.round((presentCount / total) * 100) : 0;
 
-  const canEdit = user?.role === 'ADMIN' || (session.status !== 'FINALIZED' && (user?.role === 'COACH' || user?.role === 'CAPTAIN'));
-  const canFinalize = session.status !== 'FINALIZED' && ['ADMIN', 'COACH', 'CAPTAIN'].includes(user?.role || '');
+  const canEdit = user?.role === 'ADMIN' || (session.status !== 'FINALIZED' && (user?.role === 'COACH' || user?.role === 'SPORTS_OFFICER'));
+  const canFinalize = session.status !== 'FINALIZED' && ['ADMIN', 'COACH', 'SPORTS_OFFICER'].includes(user?.role || '');
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">

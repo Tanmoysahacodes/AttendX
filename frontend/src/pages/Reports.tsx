@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download, FileSpreadsheet } from 'lucide-react';
 import api from '../lib/api';
@@ -9,8 +10,26 @@ export default function Reports() {
     queryFn: () => api.get('/attendance/sessions').then(r => r.data.data),
   });
 
-  const handleExport = () => {
-    window.open(`${api.defaults.baseURL}/stats/export/csv?token=${localStorage.getItem('token')}`, '_blank');
+  const [selectedSessionId, setSelectedSessionId] = useState<string>('');
+
+  const handleExport = async () => {
+    if (!selectedSessionId) {
+      alert("Please select a session to export.");
+      return;
+    }
+    try {
+      const response = await api.get(`/stats/export/csv?sessionId=${selectedSessionId}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'attendance_report.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (error) {
+      console.error('Failed to export CSV', error);
+      alert('Failed to export report.');
+    }
   };
 
   return (
@@ -20,9 +39,23 @@ export default function Reports() {
           <h1 className="text-2xl font-bold text-zinc-50">Reports</h1>
           <p className="text-zinc-500 text-sm mt-1">Generate and download team reports.</p>
         </div>
-        <button onClick={handleExport} className="btn-primary">
-          <Download className="w-4 h-4" /> Export CSV
-        </button>
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <select 
+            value={selectedSessionId} 
+            onChange={e => setSelectedSessionId(e.target.value)}
+            className="input text-sm py-1.5 min-w-[220px]"
+          >
+            <option value="">Select a session...</option>
+            {sessions.map((s: any) => (
+              <option key={s.id} value={s.id}>
+                {formatDate(s.date)} — {s.status.replace('_', ' ')}
+              </option>
+            ))}
+          </select>
+          <button onClick={handleExport} disabled={!selectedSessionId || isLoading} className="btn-primary whitespace-nowrap">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+        </div>
       </div>
 
       <div className="card overflow-hidden">

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
-import { CheckCircle2, XCircle, Calendar } from 'lucide-react';
+import { CheckCircle2, XCircle, Calendar, Sun } from 'lucide-react';
 import api from '../lib/api';
 import { formatDate } from '../lib/utils';
 
@@ -65,13 +65,19 @@ export default function MyAttendance() {
                   <p className="font-medium text-zinc-100">{formatDate(r.session.date)}</p>
                   <p className="text-xs text-zinc-500 mt-0.5">Marked by {r.markedBy.name}</p>
                 </div>
-                <div className={`badge ${r.status === 'PRESENT' ? 'badge-present' : 'badge-absent'} px-3 py-1 text-sm`}>
-                  {r.status === 'PRESENT' ? (
-                    <><CheckCircle2 className="w-4 h-4 mr-1.5" /> Present</>
-                  ) : (
-                    <><XCircle className="w-4 h-4 mr-1.5" /> Absent</>
-                  )}
-                </div>
+                {r.session.status === 'DAY_OFF' ? (
+                  <div className="badge bg-blue-900/40 text-blue-400 border-blue-900/40 px-3 py-1 text-sm">
+                    <Sun className="w-4 h-4 mr-1.5" /> Day Off
+                  </div>
+                ) : (
+                  <div className={`badge ${r.status === 'PRESENT' ? 'badge-present' : 'badge-absent'} px-3 py-1 text-sm`}>
+                    {r.status === 'PRESENT' ? (
+                      <><CheckCircle2 className="w-4 h-4 mr-1.5" /> Present</>
+                    ) : (
+                      <><XCircle className="w-4 h-4 mr-1.5" /> Absent</>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

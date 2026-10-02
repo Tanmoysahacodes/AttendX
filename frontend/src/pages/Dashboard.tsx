@@ -45,13 +45,13 @@ export default function Dashboard() {
   const { data: roster = [] } = useQuery({
     queryKey: ['players'],
     queryFn: () => api.get('/players').then(r => r.data.data),
-    enabled: role === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN',
+    enabled: role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER' || role === 'CAPTAIN',
   });
 
   const { data: sessions = [] } = useQuery({
     queryKey: ['sessions'],
     queryFn: () => api.get('/attendance/sessions').then(r => r.data.data),
-    enabled: role === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN',
+    enabled: role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER' || role === 'CAPTAIN',
   });
 
   const { data: trend = [] } = useQuery({
@@ -87,20 +87,33 @@ export default function Dashboard() {
 
   const TodayAction = () => {
     if (statsLoading) return null;
-    if (!todayStatus) return (
-      <Link to="/attendance" className="btn-primary">
-        <Plus className="w-4 h-4" /> Create Today's Session
-      </Link>
-    );
+    // CAPTAIN is view-only; SPORTS_OFFICER gets same access as COACH
+    const isCaptain = role === 'CAPTAIN';
+    if (!todayStatus) {
+      if (isCaptain) return null;
+      return (
+        <Link to="/attendance" className="btn-primary">
+          <Plus className="w-4 h-4" /> Create Today's Session
+        </Link>
+      );
+    }
     if (todayStatus === 'OPEN') return (
-      <Link to="/attendance" className="btn-primary">
-        <ClipboardList className="w-4 h-4" /> Mark Attendance
-      </Link>
+      isCaptain
+        ? <Link to={todayId ? `/sessions/${todayId}` : '/attendance'} className="btn-secondary">
+            <ClipboardList className="w-4 h-4" /> View Session
+          </Link>
+        : <Link to="/attendance" className="btn-primary">
+            <ClipboardList className="w-4 h-4" /> Mark Attendance
+          </Link>
     );
     if (todayStatus === 'FINALIZED') return (
-      <Link to="/attendance" className="btn-secondary">
-        <RefreshCw className="w-4 h-4" /> Update Attendance
-      </Link>
+      isCaptain
+        ? <Link to={todayId ? `/sessions/${todayId}` : '/sessions'} className="btn-secondary">
+            <ClipboardList className="w-4 h-4" /> View Attendance
+          </Link>
+        : <Link to="/attendance" className="btn-secondary">
+            <RefreshCw className="w-4 h-4" /> Update Attendance
+          </Link>
     );
     if (todayStatus === 'DAY_OFF') return (
       <Link to={todayId ? `/sessions/${todayId}` : '/sessions'} className="btn-secondary">
@@ -115,13 +128,13 @@ export default function Dashboard() {
       {/* Hero */}
       <div className="animate-fade-in">
         <h1 className="text-2xl font-bold text-zinc-50">
-          {getGreeting()}, {user?.name?.split(' ')[0]} 👋
+          {getGreeting()}, {user?.name} 👋
         </h1>
         <p className="text-zinc-500 text-sm mt-1">{formatDate(new Date())}</p>
       </div>
 
       {/* ── Admin / Coach / Captain ──────────────────────────────── */}
-      {(role === 'ADMIN' || role === 'COACH' || role === 'CAPTAIN') && (
+      {(role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER' || role === 'CAPTAIN') && (
         <>
           {/* Captain Card for Admin */}
           {role === 'ADMIN' && (
@@ -330,9 +343,15 @@ export default function Dashboard() {
                 {myAttendance.slice(0, 8).map((r: any) => (
                   <div key={r.id} className="flex items-center justify-between py-2 border-b border-surface-border last:border-0">
                     <span className="text-sm text-zinc-300">{formatDate(r.session.date)}</span>
-                    <span className={r.status === 'PRESENT' ? 'badge badge-present' : 'badge badge-absent'}>
-                      {r.status === 'PRESENT' ? '✓ Present' : '✕ Absent'}
-                    </span>
+                    {r.session.status === 'DAY_OFF' ? (
+                      <span className="badge bg-blue-900/40 text-blue-400 border-blue-900/40">
+                        <Sun className="w-3 h-3 mr-1" /> Day Off
+                      </span>
+                    ) : (
+                      <span className={r.status === 'PRESENT' ? 'badge badge-present' : 'badge badge-absent'}>
+                        {r.status === 'PRESENT' ? '✓ Present' : '✕ Absent'}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

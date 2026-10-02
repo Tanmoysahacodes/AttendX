@@ -43,6 +43,7 @@ export function getRoleBadgeClass(role: string) {
   switch (role) {
     case 'ADMIN': return 'badge-admin';
     case 'COACH': return 'badge-coach';
+    case 'SPORTS_OFFICER': return 'badge-coach';
     case 'CAPTAIN': return 'badge-captain';
     default: return 'badge-player';
   }

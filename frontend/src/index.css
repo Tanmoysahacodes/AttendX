@@ -8,27 +8,44 @@
   :root {
     color-scheme: dark;
   }
+
   html {
     @apply font-sans;
     -webkit-tap-highlight-color: transparent;
   }
+
   body {
     @apply bg-surface-base text-zinc-100 antialiased;
   }
+
   * {
     @apply border-surface-border;
   }
-  ::-webkit-scrollbar { @apply w-1.5 h-1.5; }
-  ::-webkit-scrollbar-track { @apply bg-surface-secondary; }
-  ::-webkit-scrollbar-thumb { @apply bg-surface-muted rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-zinc-500; }
+
+  ::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-secondary;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-muted rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-zinc-500;
+  }
 }
 
 @layer components {
+
   /* ── Cards ───────────────────────────────────────────────────── */
   .card {
     @apply bg-surface-card border border-surface-border rounded-xl;
   }
+
   .card-sm {
     @apply bg-surface-card border border-surface-border rounded-lg;
   }
@@ -37,36 +54,44 @@
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-base;
   }
+
   .btn-primary {
     @apply btn bg-brand-600 hover:bg-brand-700 text-white focus:ring-brand-500;
   }
+
   .btn-secondary {
     @apply btn bg-surface-card hover:bg-zinc-800 text-zinc-100 border border-surface-border focus:ring-zinc-500;
   }
+
   .btn-ghost {
     @apply btn hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 focus:ring-zinc-500;
   }
+
   .btn-danger {
     @apply btn bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-900/40 focus:ring-red-500;
   }
+
   .btn-success {
     @apply btn bg-green-900/30 hover:bg-green-900/50 text-green-400 border border-green-900/40 focus:ring-green-500;
   }
+
   .btn-lg {
     @apply px-6 py-3 text-base;
   }
+
   .btn-sm {
     @apply px-3 py-1.5 text-xs;
   }
+
   .btn-icon {
     @apply btn p-2 aspect-square;
   }
 
   /* ── Inputs ──────────────────────────────────────────────────── */
   .input {
-    @apply w-full bg-surface-secondary border border-surface-border rounded-lg px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-500
-           focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition-colors;
+    @apply w-full bg-surface-secondary border border-surface-border rounded-lg px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition-colors;
   }
+
   .label {
     @apply block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider;
   }
@@ -75,39 +100,51 @@
   .badge {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold;
   }
+
   .badge-present {
     @apply badge bg-green-900/40 text-green-400 border border-green-900/40;
   }
+
   .badge-absent {
     @apply badge bg-red-900/40 text-red-400 border border-red-900/40;
   }
+
   .badge-active {
     @apply badge bg-green-900/40 text-green-400;
   }
+
   .badge-inactive {
     @apply badge bg-zinc-800 text-zinc-400;
   }
+
   .badge-captain {
     @apply badge bg-amber-900/40 text-amber-400 border border-amber-900/30;
   }
+
   .badge-coach {
     @apply badge bg-blue-900/40 text-blue-400 border border-blue-900/30;
   }
+
   .badge-admin {
     @apply badge bg-purple-900/40 text-purple-400 border border-purple-900/30;
   }
+
   .badge-player {
     @apply badge bg-zinc-800/80 text-zinc-300;
   }
+
   .badge-urgent {
     @apply badge bg-red-900/40 text-red-400;
   }
+
   .badge-high {
     @apply badge bg-orange-900/40 text-orange-400;
   }
+
   .badge-normal {
     @apply badge bg-blue-900/40 text-blue-400;
   }
+
   .badge-low {
     @apply badge bg-zinc-800 text-zinc-400;
   }
@@ -116,9 +153,11 @@
   .stat-card {
     @apply card p-5 flex flex-col gap-1;
   }
+
   .stat-value {
     @apply text-3xl font-bold text-zinc-50;
   }
+
   .stat-label {
     @apply text-xs font-medium text-zinc-500 uppercase tracking-wider;
   }
@@ -127,9 +166,11 @@
   .att-present {
     @apply bg-green-900/30 border-green-700/50 text-green-400 hover:bg-green-900/50;
   }
+
   .att-absent {
     @apply bg-red-900/30 border-red-700/50 text-red-400 hover:bg-red-900/50;
   }
+
   .att-unset {
     @apply bg-surface-secondary border-surface-border text-zinc-500 hover:border-zinc-500;
   }
