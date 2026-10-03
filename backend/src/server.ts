@@ -22,11 +22,11 @@ console.log('[STARTUP 2/6] dotenv.config() completed');
 // ============================================================
 console.log('[STARTUP 3/6] Auditing environment variables...');
 const envAudit = {
-  DATABASE_URL:       !!process.env.DATABASE_URL && process.env.DATABASE_URL.length > 0,
-  JWT_ACCESS_SECRET:  !!process.env.JWT_ACCESS_SECRET && process.env.JWT_ACCESS_SECRET.length > 0,
+  DATABASE_URL: !!process.env.DATABASE_URL && process.env.DATABASE_URL.length > 0,
+  JWT_ACCESS_SECRET: !!process.env.JWT_ACCESS_SECRET && process.env.JWT_ACCESS_SECRET.length > 0,
   JWT_REFRESH_SECRET: !!process.env.JWT_REFRESH_SECRET && process.env.JWT_REFRESH_SECRET.length > 0,
-  PORT:               process.env.PORT || '(not set, will use 3000)',
-  NODE_ENV:           process.env.NODE_ENV || '(not set)',
+  PORT: process.env.PORT || '(not set, will use 3000)',
+  NODE_ENV: process.env.NODE_ENV || '(not set)',
 };
 console.log('  DATABASE_URL present:       ', envAudit.DATABASE_URL);
 console.log('  JWT_ACCESS_SECRET present:  ', envAudit.JWT_ACCESS_SECRET);
@@ -35,7 +35,7 @@ console.log('  PORT:                       ', envAudit.PORT);
 console.log('  NODE_ENV:                   ', envAudit.NODE_ENV);
 
 const missing = Object.entries(envAudit)
-  .filter(([k, v]) => ['DATABASE_URL','JWT_ACCESS_SECRET','JWT_REFRESH_SECRET'].includes(k) && v === false)
+  .filter(([k, v]) => ['DATABASE_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'].includes(k) && v === false)
   .map(([k]) => k);
 
 if (missing.length > 0) {
@@ -70,6 +70,7 @@ const port = Number(process.env.PORT) || 3000;
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://localhost',
   'https://attend-x-woad.vercel.app'
 ];
 
