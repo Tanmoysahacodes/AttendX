@@ -7,6 +7,7 @@ import {
   ChevronRight, Activity, UserCog, Info
 } from 'lucide-react';
 import { cn, getInitials, getRoleLabel, getRoleBadgeClass } from '../lib/utils';
+import logoUrl from '../assets/logo.png';
 
 interface NavItem {
   label: string;
@@ -73,7 +74,7 @@ export default function AppLayout() {
       {/* Logo */}
       <div className={cn('flex items-center gap-3 p-4 border-b border-surface-border', collapsed && !mobile && 'justify-center')}>
         <div className="flex-shrink-0 w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-white/10">
-          <img src="/logo.png" alt="AttendX Logo" className="w-full h-full object-contain" />
+          <img src={logoUrl} alt="AttendX Logo" className="w-full h-full object-contain" />
         </div>
         {(!collapsed || mobile) && (
           <div className="text-xl font-black tracking-tight leading-none">

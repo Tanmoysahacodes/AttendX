@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, User, Hash, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import api from '../lib/api';
+import logoUrl from '../assets/logo.png';
 
 export default function Login() {
   const [mode, setMode] = useState<'player' | 'staff'>('player');
   const [name, setName] = useState('');
-  const [jersey, setJersey] = useState('');
+  const [systemId, setSystemId] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +36,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post('/auth/login/player', { name: name.trim(), jerseyNumber: jersey.trim() });
+      const res = await api.post('/auth/login/player', { name: name.trim(), systemId: systemId.trim() });
       login(res.data.data.token, res.data.data.user);
       navigate('/');
     } catch (err: any) {
@@ -75,7 +76,7 @@ export default function Login() {
         {/* Logo / Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-24 h-24 mb-4">
-            <img src="/logo.png" alt="AttendX Logo" className="w-full h-full object-contain" />
+            <img src={logoUrl} alt="AttendX Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-4xl font-black text-zinc-50 tracking-tight">Attend<span className="text-brand-500">X</span></h1>
           <p className="text-zinc-500 text-xs mt-2 tracking-[0.25em] uppercase">Team Attendance Platform</p>
@@ -126,17 +127,24 @@ export default function Login() {
               </div>
             </div>
             <div>
-              <label className="label">Jersey Number</label>
+              <label className="label">System ID</label>
               <div className="relative">
                 <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
-                  type="text"
-                  placeholder="e.g. 07"
-                  value={jersey}
-                  onChange={e => setJersey(e.target.value)}
-                  className="input pl-10"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter System ID"
+                  value={systemId}
+                  onChange={e => setSystemId(e.target.value)}
+                  className="input pl-10 pr-10"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
             <button type="submit" className="btn-primary btn-lg w-full mt-2" disabled={loading}>

@@ -6,21 +6,23 @@ dotenv.config();
 const prisma = new PrismaClient();
 
 const players = [
-  { name: 'Chetan', jerseyNumber: '05', position: 'Raider', description: 'Quick and attacking raider with good footwork, hand touches, bonus points and running hand touches. Creates scoring opportunities through speed and timing.' },
-  { name: 'Himanshu', jerseyNumber: '01', position: 'Right Corner', description: 'Powerful corner defender skilled in ankle holds, blocks, thigh holds and dashes. Strong against attacking raiders.' },
-  { name: 'Ravees', jerseyNumber: '06', position: 'Defender', description: 'Reliable defender with strengths in strong tackles, blocks, holds and chain tackles. Provides stability to the defensive unit.' },
-  { name: 'Jayant', jerseyNumber: '15', position: 'Left In', description: 'Versatile player who mainly plays Left In and can also play both corners. Strong in blocks, ankle holds, dashes and chain tackles.' },
-  { name: 'Nakul', jerseyNumber: '02', position: 'Right Cover', description: 'Solid cover defender with blocks, thigh holds, dashes and chain tackles. Good defensive positioning and support play.' },
-  { name: 'Doyla', jerseyNumber: '11', position: 'Right In', description: 'Quick and hardworking defender skilled in blocks, dashes and support tackles. Effective at closing gaps in defence.' },
-  { name: 'Amit', jerseyNumber: '07', position: 'Right Cover', description: 'Strong cover defender known for blocks, thigh holds, dashes and chain tackles. Dependable in defensive situations.' },
-  { name: 'Saurav', jerseyNumber: '12', position: 'Raider', description: 'Agile attacking raider with quick raids, hand touches, bonus attempts and sharp footwork. Good at finding gaps in the defence.' },
-  { name: 'Anil', jerseyNumber: '21', position: 'Right Corner', description: 'Aggressive corner defender with strong ankle holds, blocks, dashes and corner tackles. Quick reactions during defensive situations.' },
-  { name: 'Sumit', jerseyNumber: '30', position: 'Left Cover', description: 'Strong left cover with blocks, thigh holds, dashes and chain tackles. Provides excellent support to the left-side defence.' },
+  { name: 'Chetan', jerseyNumber: '05', systemId: '2025295361', position: 'Raider', description: 'Quick and attacking raider with good footwork, hand touches, bonus points and running hand touches. Creates scoring opportunities through speed and timing.' },
+  { name: 'Himanshu', jerseyNumber: '01', systemId: '2023378058', position: 'Right Corner', description: 'Powerful corner defender skilled in ankle holds, blocks, thigh holds and dashes. Strong against attacking raiders.' },
+  { name: 'Ravees', jerseyNumber: '06', systemId: '2026281411', position: 'Defender', description: 'Reliable defender with strengths in strong tackles, blocks, holds and chain tackles. Provides stability to the defensive unit.' },
+  { name: 'Jayant', jerseyNumber: '15', systemId: '2025298708', position: 'Left In', description: 'Versatile player who mainly plays Left In and can also play both corners. Strong in blocks, ankle holds, dashes and chain tackles.' },
+  { name: 'Nakul', jerseyNumber: '02', systemId: '2025355617', position: 'Right Cover', description: 'Solid cover defender with blocks, thigh holds, dashes and chain tackles. Good defensive positioning and support play.' },
+  { name: 'Doyla', jerseyNumber: '11', systemId: '2025289375', position: 'Right In', description: 'Quick and hardworking defender skilled in blocks, dashes and support tackles. Effective at closing gaps in defence.' },
+  { name: 'Amit', jerseyNumber: '07', systemId: '2024374960', position: 'Right Cover', description: 'Strong cover defender known for blocks, thigh holds, dashes and chain tackles. Dependable in defensive situations.' },
+  { name: 'Saurav', jerseyNumber: '12', systemId: '2025410962', position: 'Raider', description: 'Agile attacking raider with quick raids, hand touches, bonus attempts and sharp footwork. Good at finding gaps in the defence.' },
+  { name: 'Anil', jerseyNumber: '21', systemId: '2025309364', position: 'Right Corner', description: 'Aggressive corner defender with strong ankle holds, blocks, dashes and corner tackles. Quick reactions during defensive situations.' },
+  { name: 'Sumit', jerseyNumber: '30', systemId: '2025377506', position: 'Left Cover', description: 'Strong left cover with blocks, thigh holds, dashes and chain tackles. Provides excellent support to the left-side defence.' },
   { name: 'Ashu', jerseyNumber: '08', position: 'Raider', description: 'Quick and agile raider with hand touches, bonus ability, fast raids and quick escapes. Uses speed to create scoring chances.' },
-  { name: 'Prem', jerseyNumber: '09', position: 'Raider', description: 'Dynamic raider skilled in hand touches, running hand touches, bonus points and quick raids. Effective in one-on-one situations.' },
-  { name: 'Prince', jerseyNumber: '22', position: 'Left Corner', description: 'Aggressive corner defender specializing in ankle holds, blocks, dashes and chain tackles. Strong at finishing crucial tackles.' },
+  { name: 'Prem', jerseyNumber: '09', systemId: '2025172653', position: 'Raider', description: 'Dynamic raider skilled in hand touches, running hand touches, bonus points and quick raids. Effective in one-on-one situations.' },
+  { name: 'Prince', jerseyNumber: '22', systemId: '2024351034', position: 'Left Corner', description: 'Aggressive corner defender specializing in ankle holds, blocks, dashes and chain tackles. Strong at finishing crucial tackles.' },
   { name: 'Dev', jerseyNumber: '16', position: 'Raider', description: 'Attacking raider with speed, agility, hand touches and bonus attempts. Good at identifying defensive gaps and scoring points.' },
   { name: 'Rahul', jerseyNumber: '93', position: 'Defender', description: 'Versatile defender skilled in ankle holds, blocks, dashes, thigh holds and chain tackles. Strong defensive awareness and reliable support.' },
+  { name: 'Sultan', jerseyNumber: '55', systemId: '2023836859', position: 'Defender', description: 'Defender' },
+  { name: 'Shanu', jerseyNumber: '27', systemId: '2025138781', position: 'Defender', description: 'Defender' },
 ];
 
 async function main() {
@@ -45,6 +47,7 @@ async function main() {
       username: adminUsername,
       passwordHash: adminHash,
       jerseyNumber: '18',
+      systemId: '155098',
       role: 'ADMIN',
       status: 'ACTIVE',
       position: 'Left Corner',
@@ -90,6 +93,7 @@ async function main() {
       where: { jerseyNumber: p.jerseyNumber },
       update: { 
         name: p.name, 
+        systemId: p.systemId,
         status: 'ACTIVE',
         position: p.position,
         description: p.description
@@ -97,6 +101,7 @@ async function main() {
       create: {
         name: p.name,
         jerseyNumber: p.jerseyNumber,
+        systemId: p.systemId,
         position: p.position,
         description: p.description,
         role: 'PLAYER',

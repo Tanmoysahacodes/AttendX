@@ -10,21 +10,21 @@ const router = Router();
 // ─── Player login (name + jersey number) ────────────────────────────────────
 router.post('/login/player', async (req, res) => {
   try {
-    const { name, jerseyNumber } = z.object({
+    const { name, systemId } = z.object({
       name: z.string().min(1),
-      jerseyNumber: z.string().min(1),
+      systemId: z.string().min(1),
     }).parse(req.body);
 
     const player = await prisma.user.findFirst({
       where: {
         name: { equals: name.trim(), mode: 'insensitive' },
-        jerseyNumber: jerseyNumber.trim(),
+        systemId: systemId.trim(),
         status: 'ACTIVE',
       },
     });
 
     if (!player) {
-      return res.status(401).json({ success: false, message: 'No player found with that name and jersey number.' });
+      return res.status(401).json({ success: false, message: 'No player found with that name and System ID.' });
     }
 
     // Update last login

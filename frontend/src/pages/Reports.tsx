@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download, FileSpreadsheet } from 'lucide-react';
 import api from '../lib/api';
-import { formatDate } from '../lib/utils';
+import { formatDate, exportFile } from '../lib/utils';
 
 export default function Reports() {
   const { data: sessions = [], isLoading } = useQuery({
@@ -19,13 +19,7 @@ export default function Reports() {
     }
     try {
       const response = await api.get(`/stats/export/csv?sessionId=${selectedSessionId}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'attendance_report.csv');
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
+      await exportFile(response.data, 'attendance_report.csv');
     } catch (error) {
       console.error('Failed to export CSV', error);
       alert('Failed to export report.');

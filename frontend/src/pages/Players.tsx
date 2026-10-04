@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { UserPlus, Shield, Download, Upload, X, CheckCircle2, XCircle, Lock, ChevronRight, Edit2 } from 'lucide-react';
 import api from '../lib/api';
-import { getInitials, formatDate } from '../lib/utils';
+import { getInitials, formatDate, exportFile } from '../lib/utils';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod';
@@ -237,13 +237,7 @@ export default function Players() {
   const handleExport = async () => {
     try {
       const res = await api.get('/players/export/csv', { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'players.csv');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      await exportFile(res.data, 'players.csv');
     } catch { alert('Failed to export players.'); }
   };
 

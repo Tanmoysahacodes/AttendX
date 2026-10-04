@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://attendx-api-f1qt.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://attendx-syic.onrender.com/api',
 });
 
 if (import.meta.env.DEV) {

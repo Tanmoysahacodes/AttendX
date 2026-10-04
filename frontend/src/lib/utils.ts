@@ -80,3 +80,44 @@ export function getPriorityBadge(priority: string) {
     default: return 'badge-low';
   }
 }
+
+export async function exportFile(blob: Blob, filename: string) {
+  const { Capacitor } = await import('@capacitor/core');
+  
+  if (Capacitor.isNativePlatform()) {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Share } = await import('@capacitor/share');
+    
+    return new Promise<void>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64data = (reader.result as string).split(',')[1];
+          const result = await Filesystem.writeFile({
+            path: filename,
+            data: base64data,
+            directory: Directory.Cache,
+          });
+          
+          await Share.share({
+            title: filename,
+            url: result.uri,
+          });
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } else {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+}
