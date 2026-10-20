@@ -252,8 +252,8 @@ export default function AppLayout() {
             {/* Dropdown Menu for Staff */}
             {canSwitchSquad && squadDropdownOpen && (
               <div className="absolute left-0 top-full mt-2 w-72 rounded-xl bg-surface-card border border-surface-border shadow-2xl z-50 p-2 space-y-2 animate-slide-up">
-                {/* Admin Overall View Option */}
-                {user?.role === 'ADMIN' && (
+                {/* Admin & Sports Officer: Overall View Option */}
+                {(user?.role === 'ADMIN' || user?.role === 'SPORTS_OFFICER') && (
                   <button
                     onClick={() => {
                       setIsOverallView(true);

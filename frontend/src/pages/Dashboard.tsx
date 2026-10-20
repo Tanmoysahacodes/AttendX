@@ -31,9 +31,11 @@ function StatCard({ label, value, icon: Icon, color = 'text-zinc-300', sub, load
   );
 }
 
-// ─── Overall Sports Society View (Admin Only) ──────────────────────────────────
+// ─── Overall Sports Society View (Admin & Sports Officer) ──────────────────────
 function OverallSocietyDashboard() {
+  const { user } = useAuth();
   const { setActiveSquadId } = useSquad();
+  const role = user?.role;
 
   const { data: overall, isLoading } = useQuery({
     queryKey: ['stats-overall'],
@@ -55,9 +57,15 @@ function OverallSocietyDashboard() {
               Multi-sport monitoring across Kabaddi, Badminton, Taekwondo, and society squads.
             </p>
           </div>
-          <Link to="/sports" className="btn-primary btn-sm self-start sm:self-auto">
-            <Trophy className="w-4 h-4" /> Manage Sports & Squads
-          </Link>
+          {role === 'ADMIN' ? (
+            <Link to="/sports" className="btn-primary btn-sm self-start sm:self-auto">
+              <Trophy className="w-4 h-4" /> Manage Sports & Squads
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-900/30 border border-purple-800/40 text-purple-300 text-xs font-semibold">
+              <Shield className="w-3.5 h-3.5" /> Sports Officer View
+            </span>
+          )}
         </div>
       </div>
 
@@ -146,8 +154,8 @@ export default function Dashboard() {
   const { activeSquad, activeSport, activeCategory, accentColor, isOverallView } = useSquad();
   const role = user?.role;
 
-  // If Admin chose overall view, show Overall Society Dashboard
-  if (role === 'ADMIN' && isOverallView) {
+  // If Admin or Sports Officer chose overall view, show Overall Society Dashboard
+  if ((role === 'ADMIN' || role === 'SPORTS_OFFICER') && isOverallView) {
     return (
       <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
         <OverallSocietyDashboard />

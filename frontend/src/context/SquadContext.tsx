@@ -185,7 +185,7 @@ export function SquadProvider({ children }: { children: React.ReactNode }) {
   }, [user, queryClient]);
 
   const setIsOverallView = useCallback((val: boolean) => {
-    if (user?.role !== 'ADMIN') return;
+    if (!user || !['ADMIN', 'SPORTS_OFFICER'].includes(user.role)) return;
     setIsOverallViewState(val);
     setIsSelectorOpenState(false);
     queryClient.invalidateQueries();

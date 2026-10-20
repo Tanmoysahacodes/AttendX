@@ -15,7 +15,7 @@ async function resolveSquadId(req: any): Promise<string | undefined> {
 }
 
 // ─── Overall Sports Society stats (Admin only) ────────────────────────────────
-router.get('/overall', requireAuth, requireRole('ADMIN'), async (req, res) => {
+router.get('/overall', requireAuth, requireRole('ADMIN', 'SPORTS_OFFICER'), async (req, res) => {
   try {
     const sports = await prisma.sport.findMany({
       where: { isActive: true },

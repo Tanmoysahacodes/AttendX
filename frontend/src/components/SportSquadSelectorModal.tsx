@@ -112,8 +112,8 @@ export default function SportSquadSelectorModal() {
         </div>
 
         <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-          {/* Admin Overall Society Option */}
-          {user?.role === 'ADMIN' && (
+          {/* Admin & Sports Officer: Overall Society Option */}
+          {(user?.role === 'ADMIN' || user?.role === 'SPORTS_OFFICER') && (
             <div>
               <button
                 type="button"
