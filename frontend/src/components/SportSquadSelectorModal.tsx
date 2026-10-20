@@ -24,7 +24,7 @@ export default function SportSquadSelectorModal() {
   // Sync initial selection when modal opens
   useEffect(() => {
     if (isSelectorOpen && sports.length > 0) {
-      if (isOverallView) {
+      if (isOverallView || (['ADMIN', 'SPORTS_OFFICER'].includes(user?.role || '') && !localStorage.getItem('attendx_active_squad_id'))) {
         setChooseOverall(true);
       } else if (activeSquad) {
         setChooseOverall(false);

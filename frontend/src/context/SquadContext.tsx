@@ -132,6 +132,13 @@ export function SquadProvider({ children }: { children: React.ReactNode }) {
 
     // For Admin, Coach, Sports Officer: restore last valid selected squad or prompt on login
     const shouldPrompt = localStorage.getItem('attendx_prompt_squad_selection') === 'true';
+    const savedOverall = localStorage.getItem('attendx_is_overall_view');
+    const isOverallUser = ['ADMIN', 'SPORTS_OFFICER'].includes(user.role);
+
+    if (isOverallUser && savedOverall === 'true') {
+      setIsOverallViewState(true);
+    }
+
     const savedSquadId = localStorage.getItem(`attendx_last_squad_${user.id}`) ||
                          localStorage.getItem('attendx_active_squad_id');
 
@@ -146,7 +153,7 @@ export function SquadProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (shouldPrompt || !savedSquadId || !allSquads.some(s => s.id === savedSquadId)) {
+    if (shouldPrompt || (!savedSquadId && !savedOverall)) {
       setIsSelectorOpenState(true);
       localStorage.removeItem('attendx_prompt_squad_selection');
     }
@@ -175,6 +182,7 @@ export function SquadProvider({ children }: { children: React.ReactNode }) {
     if (user?.role === 'PLAYER' || user?.role === 'CAPTAIN') return; // restricted
     setActiveSquadIdState(squadId);
     setIsOverallViewState(false);
+    localStorage.setItem('attendx_is_overall_view', 'false');
     setIsSelectorOpenState(false);
     localStorage.setItem('attendx_active_squad_id', squadId);
     if (user) {
@@ -187,6 +195,7 @@ export function SquadProvider({ children }: { children: React.ReactNode }) {
   const setIsOverallView = useCallback((val: boolean) => {
     if (!user || !['ADMIN', 'SPORTS_OFFICER'].includes(user.role)) return;
     setIsOverallViewState(val);
+    localStorage.setItem('attendx_is_overall_view', val ? 'true' : 'false');
     setIsSelectorOpenState(false);
     queryClient.invalidateQueries();
   }, [user, queryClient]);
