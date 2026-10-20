@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
+import { useSquad } from '../context/SquadContext';
 import { Check, X, CheckCircle2, ShieldAlert, Save, Lock, RefreshCw, Sun, Plus } from 'lucide-react';
 import api from '../lib/api';
 import { formatDate, getInitials } from '../lib/utils';
@@ -8,6 +9,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 
 export default function Attendance() {
   const { user } = useAuth();
+  const { activeSquad, activeSport, activeCategory, accentColor } = useSquad();
   const role = user?.role;
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -22,22 +24,20 @@ export default function Attendance() {
   const [showDayOffModal, setShowDayOffModal] = useState(false);
   const [dayOffReason, setDayOffReason] = useState('');
 
-  // Get active players
+  // Get active players for the selected squad
   const { data: players = [], isLoading: playersLoading } = useQuery({
-    queryKey: ['players'],
-    queryFn: () => api.get('/players').then(r => r.data.data.filter((p: any) => p.status === 'ACTIVE')),
+    queryKey: ['players', activeSquad?.id],
+    queryFn: () => api.get('/players', { params: { squadId: activeSquad?.id } }).then(r => r.data.data.filter((p: any) => p.status === 'ACTIVE')),
   });
 
-  // Get all sessions
+  // Get sessions for the selected squad
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
-    queryKey: ['sessions'],
-    queryFn: () => api.get('/attendance/sessions').then(r => r.data.data),
+    queryKey: ['sessions', activeSquad?.id],
+    queryFn: () => api.get('/attendance/sessions', { params: { squadId: activeSquad?.id } }).then(r => r.data.data),
   });
 
   const session = useMemo(() => {
     return sessions.find((s: any) => {
-      // DB stores dates as UTC midnight (2026-09-28T00:00:00.000Z)
-      // Extract YYYY-MM-DD from the UTC timestamp directly (not local)
       const sDate = s.date.split('T')[0];
       return sDate === selectedDate;
     }) || null;
@@ -57,8 +57,10 @@ export default function Attendance() {
 
   const isDayOff = session?.status === 'DAY_OFF';
   const isFinalized = session?.status === 'FINALIZED';
-  const canEdit = role === 'ADMIN' || (!isFinalized && !isDayOff && (role === 'COACH' || role === 'SPORTS_OFFICER'));
-  const canUpdate = (role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && isFinalized;
+  // Captains have Admin-equivalent attendance-management within their own squad!
+  const isStaffOrCaptain = role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER' || role === 'CAPTAIN';
+  const canEdit = isStaffOrCaptain && !isFinalized && !isDayOff;
+  const canUpdate = isStaffOrCaptain && isFinalized;
 
   const toggleStatus = (playerId: string, target: 'PRESENT' | 'ABSENT') => {
     if (!canEdit) return;
@@ -79,10 +81,10 @@ export default function Attendance() {
     mutationFn: () => api.post('/attendance/sessions', {
       date: selectedDate,
       sessionType: 'PRACTICE',
+      squadId: activeSquad?.id,
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['team-stats'] });
+      queryClient.invalidateQueries();
     },
     onError: (err: any) => alert(err.response?.data?.message || 'Failed to create session.'),
   });
@@ -92,12 +94,12 @@ export default function Attendance() {
       api.post('/attendance/mark', {
         date: selectedDate,
         sessionId: session?.id,
+        squadId: activeSquad?.id,
         records,
         finalize,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['team-stats'] });
+      queryClient.invalidateQueries();
     },
     onError: (err: any) => alert(err.response?.data?.message || 'Failed to save attendance.'),
     onSettled: () => setSaving(false),
@@ -106,7 +108,7 @@ export default function Attendance() {
   const reopenMutation = useMutation({
     mutationFn: () => api.post(`/attendance/sessions/${session?.id}/reopen`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries();
     },
   });
 
@@ -114,12 +116,11 @@ export default function Attendance() {
     mutationFn: async ({ reason }: { reason: string }) => {
       const res = session?.id
         ? await api.post(`/attendance/sessions/${session.id}/dayoff`, { reason })
-        : await api.post('/attendance/dayoff', { date: selectedDate, reason });
+        : await api.post('/attendance/dayoff', { date: selectedDate, squadId: activeSquad?.id, reason });
       return res;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['team-stats'] });
+      queryClient.invalidateQueries();
       setShowDayOffModal(false);
       setDayOffReason('');
     },
@@ -130,7 +131,7 @@ export default function Attendance() {
     if (!canEdit) return;
     const recordsToSave = Object.entries(localRecords).map(([playerId, status]) => ({ playerId, status }));
     if (recordsToSave.length === 0) { alert('No attendance marked yet. Mark at least one player first.'); return; }
-    if (finalize && !confirm('Finalize attendance?\n\nOnce finalized, attendance can still be updated by authorized staff.')) return;
+    if (finalize && !confirm('Finalize attendance?\n\nOnce finalized, attendance can still be updated by authorized staff or captain.')) return;
     setSaving(true);
     saveMutation.mutate({ records: recordsToSave, finalize });
   };
@@ -141,10 +142,24 @@ export default function Attendance() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto pb-28">
-      {/* Header */}
+      {/* Header with Squad Context */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Today's Attendance</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-zinc-50">Attendance Marking</h1>
+            {activeSquad && (
+              <span
+                className="text-xs px-2.5 py-0.5 rounded-full font-semibold border"
+                style={{
+                  backgroundColor: `${accentColor}20`,
+                  color: accentColor,
+                  borderColor: `${accentColor}40`,
+                }}
+              >
+                {activeSport?.name} → {activeCategory?.name}
+              </span>
+            )}
+          </div>
           <p className="text-zinc-500 text-sm mt-1">{formatDate(selectedDate)}</p>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">

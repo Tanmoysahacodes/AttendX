@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SquadProvider } from './context/SquadContext';
 import AppLayout from './layouts/AppLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -9,6 +10,7 @@ import AttendanceSessions from './pages/AttendanceSessions';
 import SessionDetails from './pages/SessionDetails';
 import MyAttendance from './pages/MyAttendance';
 import Players from './pages/Players';
+import SportsManagement from './pages/SportsManagement';
 import Schedule from './pages/Schedule';
 import Announcements from './pages/Announcements';
 import Analytics from './pages/Analytics';
@@ -50,29 +52,32 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            
-            <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route index element={<Dashboard />} />
-              <Route path="attendance" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><Attendance /></ProtectedRoute>} />
-              <Route path="sessions" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><AttendanceSessions /></ProtectedRoute>} />
-              <Route path="sessions/:id" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><SessionDetails /></ProtectedRoute>} />
-              <Route path="my-attendance" element={<ProtectedRoute allowedRoles={['PLAYER']}><MyAttendance /></ProtectedRoute>} />
-              <Route path="players" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><Players /></ProtectedRoute>} />
-              <Route path="schedule" element={<Schedule />} />
-              <Route path="announcements" element={<Announcements />} />
-              <Route path="analytics" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><Analytics /></ProtectedRoute>} />
-              <Route path="reports" element={<ProtectedRoute allowedRoles={['COACH', 'SPORTS_OFFICER', 'ADMIN']}><Reports /></ProtectedRoute>} />
-              <Route path="staff" element={<ProtectedRoute allowedRoles={['ADMIN']}><Staff /></ProtectedRoute>} />
-              <Route path="audit" element={<ProtectedRoute allowedRoles={['ADMIN']}><AuditLogs /></ProtectedRoute>} />
-              <Route path="about" element={<About />} />
-            </Route>
+        <SquadProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              
+              <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                <Route index element={<Dashboard />} />
+                <Route path="attendance" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><Attendance /></ProtectedRoute>} />
+                <Route path="sessions" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><AttendanceSessions /></ProtectedRoute>} />
+                <Route path="sessions/:id" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><SessionDetails /></ProtectedRoute>} />
+                <Route path="my-attendance" element={<ProtectedRoute allowedRoles={['PLAYER']}><MyAttendance /></ProtectedRoute>} />
+                <Route path="players" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><Players /></ProtectedRoute>} />
+                <Route path="sports" element={<ProtectedRoute allowedRoles={['ADMIN']}><SportsManagement /></ProtectedRoute>} />
+                <Route path="schedule" element={<Schedule />} />
+                <Route path="announcements" element={<Announcements />} />
+                <Route path="analytics" element={<ProtectedRoute allowedRoles={['CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN']}><Analytics /></ProtectedRoute>} />
+                <Route path="reports" element={<ProtectedRoute allowedRoles={['COACH', 'SPORTS_OFFICER', 'ADMIN']}><Reports /></ProtectedRoute>} />
+                <Route path="staff" element={<ProtectedRoute allowedRoles={['ADMIN']}><Staff /></ProtectedRoute>} />
+                <Route path="audit" element={<ProtectedRoute allowedRoles={['ADMIN']}><AuditLogs /></ProtectedRoute>} />
+                <Route path="about" element={<About />} />
+              </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </SquadProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

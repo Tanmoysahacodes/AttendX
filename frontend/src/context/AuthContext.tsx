@@ -46,6 +46,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = (token: string, userData: AuthUser) => {
     localStorage.setItem('token', token);
+    if (['ADMIN', 'COACH', 'SPORTS_OFFICER'].includes(userData.role)) {
+      localStorage.setItem('attendx_prompt_squad_selection', 'true');
+    }
     setUser(userData);
   };
 

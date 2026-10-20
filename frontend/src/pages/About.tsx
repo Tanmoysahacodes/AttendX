@@ -1,4 +1,5 @@
 import { Trophy, Users, Target, Star, Heart, Zap } from 'lucide-react';
+import shardaLogoUrl from '../assets/sharda-sports-society-logo.png';
 
 const values = [
   { icon: Trophy, label: 'Excellence', desc: 'Striving for peak performance in every practice and competition.' },
@@ -16,8 +17,8 @@ export default function About() {
       <div className="relative overflow-hidden card p-8 md:p-12 text-center border-brand-900/30">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(220,38,38,0.07)_0%,_transparent_70%)] pointer-events-none" />
         <div className="relative z-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-900/40 border border-brand-900/50 mb-6">
-            <Trophy className="w-8 h-8 text-brand-400" />
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-white/10 p-2 border border-white/10 shadow-lg backdrop-blur-sm mb-6">
+            <img src={shardaLogoUrl} alt="Sharda Sports Society" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-zinc-50 tracking-tight mb-2">
             Sharda Sports Society
@@ -27,7 +28,7 @@ export default function About() {
           </p>
           <div className="w-16 h-0.5 bg-brand-600 mx-auto mb-6" />
           <p className="text-zinc-300 text-base md:text-lg leading-relaxed max-w-2xl mx-auto">
-            Sharda Sports Society is dedicated to promoting sports, fitness, teamwork, and a healthy competitive spirit among students. The society provides students with opportunities to participate in various indoor and outdoor sports, training sessions, inter-university tournaments, and campus-level competitions.
+            Welcome to Sharda Sports Society. One community. Many sports. One spirit. Dedicated to promoting sports, fitness, teamwork, and an inspiring competitive spirit across Kabaddi, Badminton, Taekwondo, and university athletic squads.
           </p>
         </div>
       </div>

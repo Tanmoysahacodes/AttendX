@@ -7,6 +7,24 @@
 @layer base {
   :root {
     color-scheme: dark;
+    --sport-accent: #f97316;
+    --sport-accent-rgb: 249, 115, 22;
+  }
+
+  .text-accent {
+    color: var(--sport-accent) !important;
+  }
+  .bg-accent {
+    background-color: var(--sport-accent) !important;
+  }
+  .bg-accent-subtle {
+    background-color: rgba(var(--sport-accent-rgb), 0.15) !important;
+  }
+  .border-accent {
+    border-color: var(--sport-accent) !important;
+  }
+  .border-accent-subtle {
+    border-color: rgba(var(--sport-accent-rgb), 0.3) !important;
   }
 
   html {

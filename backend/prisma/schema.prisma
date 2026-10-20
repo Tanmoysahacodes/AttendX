@@ -56,17 +56,66 @@ enum AnnouncementPriority {
   URGENT
 }
 
+// ─── Multi-Sport Structure ────────────────────────────────────────────────────
+
+model Sport {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  accentColor String     @default("#f97316")
+  isActive    Boolean    @default(true)
+  displayOrder Int       @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  categories  Category[]
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  sportId   String
+  sport     Sport    @relation(fields: [sportId], references: [id])
+  isActive  Boolean  @default(true)
+  displayOrder Int   @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  squads    Squad[]
+
+  @@unique([name, sportId])
+}
+
+model Squad {
+  id          String   @id @default(uuid())
+  name        String
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  isActive    Boolean  @default(true)
+  displayOrder Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  players     User[]
+  sessions    AttendanceSession[]
+
+  @@unique([name, categoryId])
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
 model User {
   id                 String      @id @default(uuid())
   name               String
   username           String?     @unique
-  jerseyNumber       String?     @unique
+  // jerseyNumber is optional and NOT globally unique (managed per-squad at app level)
+  jerseyNumber       String?
   systemId           String?     @unique
   position           String?
   description        String?
   year               String?
   course             String?
   phone              String?
+  email              String?
   avatar             String?
   passwordHash       String?
   role               Role        @default(PLAYER)
@@ -74,6 +123,10 @@ model User {
   lastLoginAt        DateTime?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
+
+  // Squad membership — null for staff without a squad (Admin, Coach, Sports Officer)
+  squadId            String?
+  squad              Squad?      @relation(fields: [squadId], references: [id])
 
   attendanceRecords  AttendanceRecord[]
   createdSessions    AttendanceSession[] @relation("CreatedSessions")
@@ -83,6 +136,8 @@ model User {
   createdEvents      ScheduleEvent[]     @relation("CreatedEvents")
   createdAnnouncements Announcement[]    @relation("CreatedAnnouncements")
 }
+
+// ─── Attendance ───────────────────────────────────────────────────────────────
 
 model AttendanceSession {
   id            String        @id @default(uuid())
@@ -94,6 +149,10 @@ model AttendanceSession {
   dayOffReason  String?
   location      String?
   startTime     String?
+
+  // Squad scope — null means legacy Kabaddi Boys session (pre-migration)
+  squadId       String?
+  squad         Squad?        @relation(fields: [squadId], references: [id])
 
   createdById   String
   createdBy     User          @relation("CreatedSessions", fields: [createdById], references: [id])
@@ -107,7 +166,8 @@ model AttendanceSession {
 
   records       AttendanceRecord[]
 
-  @@unique([date])
+  // Unique per squad per day (allows same date across different squads)
+  @@unique([date, squadId])
 }
 
 model AttendanceRecord {

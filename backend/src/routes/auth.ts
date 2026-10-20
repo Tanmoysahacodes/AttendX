@@ -21,6 +21,17 @@ router.post('/login/player', async (req, res) => {
         systemId: systemId.trim(),
         status: 'ACTIVE',
       },
+      include: {
+        squad: {
+          include: {
+            category: {
+              include: {
+                sport: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!player) {
@@ -63,6 +74,17 @@ router.post('/login', async (req, res) => {
         ],
         role: { in: ['ADMIN', 'COACH', 'SPORTS_OFFICER', 'CAPTAIN'] },
       },
+      include: {
+        squad: {
+          include: {
+            category: {
+              include: {
+                sport: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!user || !user.passwordHash) {
@@ -99,7 +121,20 @@ router.post('/login', async (req, res) => {
 
 // ─── /me ─────────────────────────────────────────────────────────────────────
 router.get('/me', requireAuth, async (req, res) => {
-  const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    include: {
+      squad: {
+        include: {
+          category: {
+            include: {
+              sport: true,
+            },
+          },
+        },
+      },
+    },
+  });
   if (!user) return res.status(404).json({ success: false, message: 'User not found' });
   const { passwordHash: _, ...safeUser } = user as any;
   res.json({ success: true, data: safeUser });

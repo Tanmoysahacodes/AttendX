@@ -57,6 +57,7 @@ import attendanceRoutes from './routes/attendance';
 import scheduleRoutes from './routes/schedule';
 import announcementsRoutes from './routes/announcements';
 import auditRoutes from './routes/audit';
+import sportsRoutes from './routes/sports';
 
 console.log('[STARTUP 4/6] ✅ Route modules loaded');
 
@@ -100,7 +101,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 // Health check — no auth, no DB, always first
-app.get('/health', (req, res) => {
+app.get(['/health', '/api/health'], (req, res) => {
   res.json({ status: 'ok', service: 'AttendX API' });
 });
 
@@ -116,6 +117,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/sports', sportsRoutes);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

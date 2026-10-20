@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { z } from 'zod';
@@ -8,27 +7,67 @@ const router = Router();
 
 const safe = (u: any) => { const { passwordHash: _, ...rest } = u; return rest; };
 
-// ─── Get all players ─────────────────────────────────────────────────────────
+// Helper: get squadId to use for this request, with permission checks
+async function resolveSquadId(req: any, res: any): Promise<string | null | undefined> {
+  const role = req.user.role;
+
+  if (role === 'PLAYER') {
+    // Players are always scoped to their own squad
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+    return me?.squadId;
+  }
+
+  if (role === 'CAPTAIN') {
+    // Captains can only access their own squad
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+    return me?.squadId;
+  }
+
+  // Admin, Coach, Sports Officer — use squadId from query param or header
+  const squadId = (req.query.squadId || req.headers['x-squad-id']) as string | undefined;
+  return squadId || undefined; // undefined means no filter (show all for admin)
+}
+
+// ─── Get all players (squad-scoped for non-admin) ─────────────────────────────
 router.get('/', requireAuth, async (req, res) => {
   try {
+    const squadId = await resolveSquadId(req, res);
+
+    // For ADMIN without a squadId filter, return all players
+    const whereClause: any = {
+      OR: [
+        { role: { in: ['PLAYER', 'CAPTAIN'] } },
+        { AND: [{ role: 'ADMIN' }, { jerseyNumber: { not: null } }] }
+      ]
+    };
+
+    if (squadId !== undefined) {
+      whereClause.squadId = squadId;
+    }
+
     const players = await prisma.user.findMany({
-      where: { 
-        OR: [
-          { role: { in: ['PLAYER', 'CAPTAIN'] } },
-          { AND: [{ role: 'ADMIN' }, { jerseyNumber: { not: null } }] }
-        ]
+      where: whereClause,
+      orderBy: [{ jerseyNumber: 'asc' }, { name: 'asc' }],
+      include: {
+        squad: { include: { category: { include: { sport: true } } } },
       },
-      orderBy: [{ jerseyNumber: 'asc' }],
     });
-    // Only count FINALIZED sessions (not DAY_OFF) for %
-    const sessionCount = await prisma.attendanceSession.count({ where: { status: 'FINALIZED' } });
+
+    // Scope session counts to the squad
+    const sessionWhere: any = { status: 'FINALIZED' };
+    if (squadId !== undefined) sessionWhere.squadId = squadId;
+    const sessionCount = await prisma.attendanceSession.count({ where: sessionWhere });
+
     const result = await Promise.all(players.map(async (p) => {
+      const recordWhere: any = { playerId: p.id, status: 'PRESENT', session: { status: 'FINALIZED' } };
+      if (squadId !== undefined) recordWhere.session.squadId = squadId;
       const presentCount = sessionCount > 0
-        ? await prisma.attendanceRecord.count({ where: { playerId: p.id, status: 'PRESENT', session: { status: 'FINALIZED' } } })
+        ? await prisma.attendanceRecord.count({ where: recordWhere })
         : 0;
       const attendancePct = sessionCount > 0 ? Math.round((presentCount / sessionCount) * 100) : null;
       return { ...safe(p), attendancePct, presentCount, totalSessions: sessionCount };
     }));
+
     res.json({ success: true, data: result });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });
@@ -38,13 +77,31 @@ router.get('/', requireAuth, async (req, res) => {
 // ─── Get single player ────────────────────────────────────────────────────────
 router.get('/:id', requireAuth, async (req, res) => {
   try {
-    const player = await prisma.user.findUnique({ where: { id: req.params.id } });
+    const player = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      include: { squad: { include: { category: { include: { sport: true } } } } },
+    });
     if (!player) return res.status(404).json({ success: false, message: 'Player not found' });
-    // Only FINALIZED (not DAY_OFF) sessions count
-    const sessionCount = await prisma.attendanceSession.count({ where: { status: 'FINALIZED' } });
+
+    // Players can only view their own profile
+    if (req.user.role === 'PLAYER' && req.params.id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    // Captains can only view players in their own squad
+    if (req.user.role === 'CAPTAIN') {
+      const captain = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (captain?.squadId && player.squadId !== captain.squadId) {
+        return res.status(403).json({ success: false, message: 'Access denied.' });
+      }
+    }
+
+    const squadFilter = player.squadId ? { squadId: player.squadId } : {};
+    const sessionCount = await prisma.attendanceSession.count({ where: { status: 'FINALIZED', ...squadFilter } });
     const presentCount = await prisma.attendanceRecord.count({ where: { playerId: player.id, status: 'PRESENT', session: { status: 'FINALIZED' } } });
     const absentCount = await prisma.attendanceRecord.count({ where: { playerId: player.id, status: 'ABSENT', session: { status: 'FINALIZED' } } });
     const attendancePct = sessionCount > 0 ? Math.round((presentCount / sessionCount) * 100) : null;
+
     // Streak
     const records = await prisma.attendanceRecord.findMany({
       where: { playerId: player.id, session: { status: 'FINALIZED' } },
@@ -60,6 +117,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     for (const r of records) {
       if (r.status === 'PRESENT') { currentStreak++; } else break;
     }
+
     res.json({ success: true, data: { ...safe(player), presentCount, absentCount, totalSessions: sessionCount, attendancePct, currentStreak, bestStreak } });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });
@@ -71,19 +129,49 @@ router.post('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
     const data = z.object({
       name: z.string().min(1),
-      jerseyNumber: z.string().min(1),
+      systemId: z.string().min(1),
+      squadId: z.string().optional(),
+      jerseyNumber: z.string().nullable().optional(), // optional, not required
       position: z.string().optional(),
       description: z.string().optional(),
       year: z.string().optional(),
       course: z.string().optional(),
       phone: z.string().optional(),
+      email: z.string().optional(),
     }).parse(req.body);
 
-    const existing = await prisma.user.findFirst({ where: { jerseyNumber: data.jerseyNumber } });
-    if (existing) return res.status(400).json({ success: false, message: `Jersey number ${data.jerseyNumber} is already taken by ${existing.name}.` });
+    const targetSquadId = data.squadId || (req.headers['x-squad-id'] as string) || (req.query.squadId as string);
 
-    const player = await prisma.user.create({ data: { ...data, role: 'PLAYER', status: 'ACTIVE' } });
-    await prisma.auditLog.create({ data: { userId: req.user.id, action: 'PLAYER_ADDED', entityType: 'USER', entityId: player.id, metadata: { name: player.name, jerseyNumber: player.jerseyNumber } } });
+    // Check systemId uniqueness (globally unique)
+    if (data.systemId) {
+      const existing = await prisma.user.findUnique({ where: { systemId: data.systemId } });
+      if (existing) return res.status(400).json({ success: false, message: `System ID ${data.systemId} is already registered to ${existing.name}.` });
+    }
+
+    // Validate squad exists if provided
+    if (targetSquadId) {
+      const squad = await prisma.squad.findUnique({ where: { id: targetSquadId } });
+      if (!squad) return res.status(400).json({ success: false, message: 'Invalid squad selected.' });
+    }
+
+    const player = await prisma.user.create({
+      data: {
+        ...data,
+        squadId: targetSquadId || null,
+        jerseyNumber: data.jerseyNumber || null,
+        role: 'PLAYER',
+        status: 'ACTIVE',
+      },
+    });
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.id,
+        action: 'PLAYER_ADDED',
+        entityType: 'USER',
+        entityId: player.id,
+        metadata: { name: player.name, systemId: player.systemId, squadId: targetSquadId },
+      },
+    });
     res.json({ success: true, data: safe(player) });
   } catch (e: any) {
     res.status(400).json({ success: false, message: e.errors?.[0]?.message || e.message });
@@ -95,18 +183,15 @@ router.patch('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
     const data = z.object({
       name: z.string().min(1).optional(),
-      jerseyNumber: z.string().min(1).optional(),
+      jerseyNumber: z.string().nullable().optional(), // optional, can be cleared
       position: z.string().nullable().optional(),
       description: z.string().nullable().optional(),
       year: z.string().nullable().optional(),
       course: z.string().nullable().optional(),
       phone: z.string().nullable().optional(),
+      email: z.string().nullable().optional(),
+      squadId: z.string().nullable().optional(),
     }).parse(req.body);
-
-    if (data.jerseyNumber) {
-      const existing = await prisma.user.findFirst({ where: { jerseyNumber: data.jerseyNumber, NOT: { id: req.params.id } } });
-      if (existing) return res.status(400).json({ success: false, message: `Jersey number ${data.jerseyNumber} is already taken.` });
-    }
 
     const player = await prisma.user.update({ where: { id: req.params.id }, data });
     await prisma.auditLog.create({ data: { userId: req.user.id, action: 'PLAYER_UPDATED', entityType: 'USER', entityId: player.id } });
@@ -145,14 +230,23 @@ router.get('/:id/attendance', requireAuth, async (req, res) => {
     if (req.user.role === 'PLAYER' && req.params.id !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
+
+    // Get player's squad to scope DAY_OFF sessions
+    const player = await prisma.user.findUnique({ where: { id: req.params.id }, select: { squadId: true } });
+
     const records = await prisma.attendanceRecord.findMany({
       where: { playerId: req.params.id },
-      include: { session: { select: { id: true, date: true, sessionType: true, status: true, dayOffReason: true } }, markedBy: { select: { name: true, role: true } } },
+      include: { session: { select: { id: true, date: true, sessionType: true, status: true, dayOffReason: true, squadId: true } }, markedBy: { select: { name: true, role: true } } },
     });
+
+    const dayOffWhere: any = { status: 'DAY_OFF' };
+    if (player?.squadId) dayOffWhere.squadId = player.squadId;
+
     const dayOffSessions = await prisma.attendanceSession.findMany({
-      where: { status: 'DAY_OFF' },
+      where: dayOffWhere,
       select: { id: true, date: true, sessionType: true, status: true, dayOffReason: true, finalizedBy: { select: { name: true, role: true } } }
     });
+
     const combined = [
       ...records,
       ...dayOffSessions.map(session => ({
@@ -170,30 +264,38 @@ router.get('/:id/attendance', requireAuth, async (req, res) => {
   }
 });
 
-
-// ─── CSV export for players ──────────────────────────────────────────────────
-router.get('/export/csv', requireAuth, requireRole('ADMIN'), async (req, res) => {
+// ─── CSV export for players (squad-scoped) ────────────────────────────────────
+router.get('/export/csv', requireAuth, requireRole('ADMIN', 'COACH', 'SPORTS_OFFICER'), async (req, res) => {
   try {
+    const squadId = req.query.squadId as string | undefined;
+
+    const whereClause: any = { role: { in: ['PLAYER', 'CAPTAIN'] } };
+    if (squadId) whereClause.squadId = squadId;
+
     const playersList = await prisma.user.findMany({
-      where: { role: { in: ['PLAYER', 'CAPTAIN'] } },
-      orderBy: { name: 'asc' }
+      where: whereClause,
+      orderBy: { name: 'asc' },
+      include: { squad: { include: { category: { include: { sport: true } } } } },
     });
 
-    const header = 'Name,Jersey Number,Position,Year,Course,Phone,Role,Status,Attendance %';
+    const header = 'Name,System ID,Jersey Number,Position,Year,Course,Email,Phone,Role,Status,Squad,Sport';
     const rows = playersList.map(p => [
-      p.name,
+      `"${p.name.replace(/"/g, '""')}"`,
+      p.systemId || '',
       p.jerseyNumber || '',
       p.position || '',
       p.year || '',
       p.course || '',
+      p.email || '',
       p.phone || '',
       p.role,
       p.status,
-      '' // we could fetch attendance % here, but omitting for speed/simplicity
+      p.squad?.name || '',
+      p.squad?.category?.sport?.name || '',
     ].join(','));
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="players.csv"');
+    res.setHeader('Content-Disposition', `attachment; filename="players${squadId ? '-' + squadId : ''}.csv"`);
     res.send([header, ...rows].join('\n'));
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });

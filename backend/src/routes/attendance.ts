@@ -6,30 +6,41 @@ import { z } from 'zod';
 const router = Router();
 
 // Helper: parse a YYYY-MM-DD string into a UTC midnight Date
-// This ensures date stored in Neon (@db.Date) matches what the frontend sends
 function parseDate(dateStr: string): Date {
-  // dateStr like "2026-09-29" → 2026-09-29T00:00:00.000Z
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
 
-// Helper to get today's date as a YYYY-MM-DD string in the local/server time
-// Then parse it as UTC midnight so it matches Neon @db.Date storage
+// Helper to get today as UTC midnight
 function todayDate(): Date {
   const now = new Date();
-  // Format as local YYYY-MM-DD
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const d = String(now.getDate()).padStart(2, '0');
   return parseDate(`${y}-${m}-${d}`);
 }
 
-// ─── Get today's session ──────────────────────────────────────────────────────
+// Helper: resolve squadId from request context
+// - Players and Captains are always scoped to their own squad
+// - Admin/Coach/Sports Officer use query param or x-squad-id header
+async function resolveSquadId(req: any): Promise<string | undefined> {
+  const role = req.user.role;
+  if (role === 'PLAYER' || role === 'CAPTAIN') {
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+    return me?.squadId ?? undefined;
+  }
+  const squadId = (req.query.squadId || req.headers['x-squad-id']) as string | undefined;
+  return squadId;
+}
+
+// ─── Get today's session (squad-scoped) ──────────────────────────────────────
 router.get('/session/today', requireAuth, async (req, res) => {
   try {
     const today = todayDate();
+    const squadId = await resolveSquadId(req);
+
     const session = await prisma.attendanceSession.findFirst({
-      where: { date: today },
+      where: { date: today, squadId: squadId ?? undefined },
       include: {
         records: {
           include: {
@@ -39,6 +50,7 @@ router.get('/session/today', requireAuth, async (req, res) => {
         },
         createdBy: { select: { id: true, name: true, role: true } },
         finalizedBy: { select: { id: true, name: true, role: true } },
+        squad: { include: { category: { include: { sport: true } } } },
       },
     });
     res.json({ success: true, data: session });
@@ -47,23 +59,42 @@ router.get('/session/today', requireAuth, async (req, res) => {
   }
 });
 
-// ─── Create session (explicit) ────────────────────────────────────────────────
-router.post('/sessions', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
+// ─── Create session (squad-scoped) ────────────────────────────────────────────
+router.post('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
-    const { date, sessionType, title, notes, location, startTime } = z.object({
+    const { date, sessionType, title, notes, location, startTime, squadId: bodySquadId } = z.object({
       date: z.string().optional(),
       sessionType: z.enum(['PRACTICE', 'MATCH', 'TOURNAMENT', 'FITNESS', 'MEETING', 'OTHER']).default('PRACTICE'),
       title: z.string().optional(),
       notes: z.string().optional(),
       location: z.string().optional(),
       startTime: z.string().optional(),
+      squadId: z.string().optional(),
     }).parse(req.body);
+
+    const resolvedSquadId = await resolveSquadId(req);
+    const squadId = resolvedSquadId ?? bodySquadId;
+
+    if (!squadId) {
+      return res.status(400).json({ success: false, message: 'squadId is required. Select a squad first.' });
+    }
+
+    // Validate squad and permissions
+    const squad = await prisma.squad.findUnique({ where: { id: squadId }, include: { category: { include: { sport: true } } } });
+    if (!squad) return res.status(404).json({ success: false, message: 'Squad not found.' });
+    if (!squad.isActive) return res.status(400).json({ success: false, message: 'Cannot create a session for an inactive squad.' });
+
+    // Captain can only create sessions in their own squad
+    if (req.user.role === 'CAPTAIN') {
+      const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (me?.squadId !== squadId) return res.status(403).json({ success: false, message: 'Captains can only manage their own squad.' });
+    }
 
     const sessionDate = date ? parseDate(date) : todayDate();
 
-    const existing = await prisma.attendanceSession.findFirst({ where: { date: sessionDate } });
+    const existing = await prisma.attendanceSession.findFirst({ where: { date: sessionDate, squadId } });
     if (existing) {
-      return res.status(400).json({ success: false, message: 'A session already exists for this date.', data: existing });
+      return res.status(400).json({ success: false, message: 'A session already exists for this squad on this date.', data: existing });
     }
 
     const session = await prisma.attendanceSession.create({
@@ -76,10 +107,12 @@ router.post('/sessions', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'AD
         startTime: startTime || undefined,
         status: 'OPEN',
         createdById: req.user.id,
+        squadId,
       },
       include: {
         createdBy: { select: { id: true, name: true, role: true } },
         records: true,
+        squad: { include: { category: { include: { sport: true } } } },
       },
     });
 
@@ -89,15 +122,19 @@ router.post('/sessions', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'AD
   }
 });
 
-// ─── Get all sessions ─────────────────────────────────────────────────────────
+// ─── Get all sessions (squad-scoped) ─────────────────────────────────────────
 router.get('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
+    const squadId = await resolveSquadId(req);
+
     const sessions = await prisma.attendanceSession.findMany({
+      where: { squadId: squadId ?? undefined },
       orderBy: { date: 'desc' },
       include: {
         records: true,
         createdBy: { select: { id: true, name: true, role: true } },
         finalizedBy: { select: { id: true, name: true, role: true } },
+        squad: { include: { category: { include: { sport: true } } } },
       },
     });
     const result = sessions.map((s) => ({
@@ -118,7 +155,6 @@ router.get('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFF
 // ─── Get single session ───────────────────────────────────────────────────────
 router.get('/sessions/:id', requireAuth, async (req, res) => {
   try {
-    // Players can only check own attendance; staff can see all
     const session = await prisma.attendanceSession.findUnique({
       where: { id: req.params.id },
       include: {
@@ -131,9 +167,16 @@ router.get('/sessions/:id', requireAuth, async (req, res) => {
         },
         createdBy: { select: { id: true, name: true, role: true } },
         finalizedBy: { select: { id: true, name: true, role: true } },
+        squad: { include: { category: { include: { sport: true } } } },
       },
     });
     if (!session) return res.status(404).json({ success: false, message: 'Session not found' });
+
+    // Captain access check
+    if (req.user.role === 'CAPTAIN') {
+      const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (me?.squadId !== session.squadId) return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
 
     // If player role, filter to own record
     if (req.user.role === 'PLAYER') {
@@ -147,39 +190,62 @@ router.get('/sessions/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ─── Mark/update attendance ───────────────────────────────────────────────────
-router.post('/mark', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
+// ─── Mark/update attendance (squad-scoped) ────────────────────────────────────
+router.post('/mark', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
-    const { date, sessionId, records, finalize } = z.object({
+    const { date, sessionId, records, finalize, squadId: bodySquadId } = z.object({
       date: z.string().optional(),
       sessionId: z.string().optional(),
       finalize: z.boolean().default(false),
+      squadId: z.string().optional(),
       records: z.array(z.object({
         playerId: z.string(),
         status: z.enum(['PRESENT', 'ABSENT']),
       })),
     }).parse(req.body);
 
-    let session;
+    let session: any;
 
     if (sessionId) {
       session = await prisma.attendanceSession.findUnique({ where: { id: sessionId } });
     } else {
+      const resolvedSquadId = await resolveSquadId(req);
+      const squadId = resolvedSquadId ?? bodySquadId;
+
+      if (!squadId) {
+        return res.status(400).json({ success: false, message: 'squadId is required. Select a squad first.' });
+      }
+
       const sessionDate = date ? parseDate(date) : todayDate();
-      session = await prisma.attendanceSession.findFirst({ where: { date: sessionDate } });
+      session = await prisma.attendanceSession.findFirst({ where: { date: sessionDate, squadId } });
 
       if (!session) {
         session = await prisma.attendanceSession.create({
-          data: { date: sessionDate, status: 'OPEN', createdById: req.user.id },
+          data: { date: sessionDate, status: 'OPEN', createdById: req.user.id, squadId },
         });
       }
     }
 
     if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
+
+    // Captain access check
+    if (req.user.role === 'CAPTAIN') {
+      const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (me?.squadId !== session.squadId) return res.status(403).json({ success: false, message: 'Captains can only manage their own squad.' });
+    }
+
     if (session.status === 'DAY_OFF') return res.status(400).json({ success: false, message: 'Cannot mark attendance for a Day Off session.' });
-    // Finalized sessions: only ADMIN can update
     if (session.status === 'FINALIZED' && req.user.role !== 'ADMIN' && req.user.role !== 'COACH' && req.user.role !== 'SPORTS_OFFICER') {
       return res.status(403).json({ success: false, message: 'Session is finalized. Only Admin/Coach/Sports Officer can update.' });
+    }
+
+    // Validate all players belong to the session's squad
+    for (const r of records) {
+      const player = await prisma.user.findUnique({ where: { id: r.playerId }, select: { squadId: true } });
+      if (!player) return res.status(400).json({ success: false, message: `Player ${r.playerId} not found.` });
+      if (session.squadId && player.squadId !== session.squadId) {
+        return res.status(400).json({ success: false, message: `Player ${r.playerId} does not belong to this squad.` });
+      }
     }
 
     // Upsert all records
@@ -193,7 +259,6 @@ router.post('/mark', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'
       )
     );
 
-    // Finalize if requested
     const newStatus = finalize ? 'FINALIZED' : (session.status === 'FINALIZED' ? 'FINALIZED' : 'OPEN');
     const updatedSession = await prisma.attendanceSession.update({
       where: { id: session.id },
@@ -210,6 +275,7 @@ router.post('/mark', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'
         },
         createdBy: { select: { id: true, name: true, role: true } },
         finalizedBy: { select: { id: true, name: true, role: true } },
+        squad: { include: { category: { include: { sport: true } } } },
       },
     });
 
@@ -219,7 +285,7 @@ router.post('/mark', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'
         action: finalize ? 'ATTENDANCE_FINALIZED' : 'ATTENDANCE_MARKED',
         entityType: 'SESSION',
         entityId: session.id,
-        metadata: { date: session.date, count: records.length, finalized: finalize },
+        metadata: { date: session.date, count: records.length, finalized: finalize, squadId: session.squadId },
       },
     });
 
@@ -230,8 +296,17 @@ router.post('/mark', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'
 });
 
 // ─── Finalize session ─────────────────────────────────────────────────────────
-router.post('/sessions/:id/finalize', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
+router.post('/sessions/:id/finalize', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
+    const existing = await prisma.attendanceSession.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Session not found.' });
+
+    // Captain access check
+    if (req.user.role === 'CAPTAIN') {
+      const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (me?.squadId !== existing.squadId) return res.status(403).json({ success: false, message: 'Captains can only manage their own squad.' });
+    }
+
     const session = await prisma.attendanceSession.update({
       where: { id: req.params.id },
       data: { status: 'FINALIZED', finalizedById: req.user.id, finalizedAt: new Date() },
@@ -245,7 +320,7 @@ router.post('/sessions/:id/finalize', requireAuth, requireRole('COACH', 'SPORTS_
   }
 });
 
-// ─── Reopen session (for updates) ────────────────────────────────────────────
+// ─── Reopen session ────────────────────────────────────────────────────────────
 router.post('/sessions/:id/reopen', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const session = await prisma.attendanceSession.update({
@@ -258,12 +333,20 @@ router.post('/sessions/:id/reopen', requireAuth, requireRole('COACH', 'SPORTS_OF
   }
 });
 
-// ─── Mark Day Off ─────────────────────────────────────────────────────────────
-router.post('/sessions/:id/dayoff', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
+// ─── Mark Day Off (on existing session) ──────────────────────────────────────
+router.post('/sessions/:id/dayoff', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const { reason } = z.object({
       reason: z.string().min(1, 'Day off reason is required'),
     }).parse(req.body);
+
+    const existing = await prisma.attendanceSession.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Session not found.' });
+
+    if (req.user.role === 'CAPTAIN') {
+      const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (me?.squadId !== existing.squadId) return res.status(403).json({ success: false, message: 'Captains can only manage their own squad.' });
+    }
 
     const session = await prisma.attendanceSession.update({
       where: { id: req.params.id },
@@ -281,18 +364,31 @@ router.post('/sessions/:id/dayoff', requireAuth, requireRole('COACH', 'SPORTS_OF
 });
 
 // ─── Create Day Off (without existing session) ────────────────────────────────
-router.post('/dayoff', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
+router.post('/dayoff', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
-    const { date, reason } = z.object({
+    const { date, reason, squadId: bodySquadId } = z.object({
       date: z.string().optional(),
       reason: z.string().min(1, 'Reason is required'),
+      squadId: z.string().optional(),
     }).parse(req.body);
+
+    const resolvedSquadId = await resolveSquadId(req);
+    const squadId = resolvedSquadId ?? bodySquadId;
+
+    if (!squadId) {
+      return res.status(400).json({ success: false, message: 'squadId is required.' });
+    }
+
+    // Captain access check
+    if (req.user.role === 'CAPTAIN') {
+      const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (me?.squadId !== squadId) return res.status(403).json({ success: false, message: 'Captains can only manage their own squad.' });
+    }
 
     const sessionDate = date ? parseDate(date) : todayDate();
 
-    const existing = await prisma.attendanceSession.findFirst({ where: { date: sessionDate } });
+    const existing = await prisma.attendanceSession.findFirst({ where: { date: sessionDate, squadId } });
     if (existing) {
-      // Update existing to DAY_OFF
       const updated = await prisma.attendanceSession.update({
         where: { id: existing.id },
         data: { status: 'DAY_OFF', dayOffReason: reason, finalizedById: req.user.id, finalizedAt: new Date() },
@@ -308,11 +404,12 @@ router.post('/dayoff', requireAuth, requireRole('COACH', 'SPORTS_OFFICER', 'ADMI
         createdById: req.user.id,
         finalizedById: req.user.id,
         finalizedAt: new Date(),
+        squadId,
       },
     });
 
     await prisma.auditLog.create({
-      data: { userId: req.user.id, action: 'DAY_OFF_MARKED', entityType: 'SESSION', entityId: session.id, metadata: { reason, date: sessionDate } },
+      data: { userId: req.user.id, action: 'DAY_OFF_MARKED', entityType: 'SESSION', entityId: session.id, metadata: { reason, date: sessionDate, squadId } },
     });
 
     res.json({ success: true, data: session, message: 'Day Off recorded.' });

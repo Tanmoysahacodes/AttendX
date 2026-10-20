@@ -5,39 +5,58 @@ import { useState } from 'react';
 import api from '../lib/api';
 import { formatDate } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
+import { useSquad } from '../context/SquadContext';
 
 export default function AttendanceSessions() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { activeSquad, activeSport, activeCategory, accentColor } = useSquad();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const todayStr = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; })();
   const [form, setForm] = useState({ date: todayStr, sessionType: 'PRACTICE', title: '', notes: '', location: '' });
 
   const { data: sessions = [], isLoading } = useQuery({
-    queryKey: ['sessions'],
-    queryFn: () => api.get('/attendance/sessions').then(r => r.data.data),
+    queryKey: ['sessions', activeSquad?.id],
+    queryFn: () => api.get('/attendance/sessions', { params: { squadId: activeSquad?.id } }).then(r => r.data.data),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post('/attendance/sessions', data),
+    mutationFn: (data: any) => api.post('/attendance/sessions', { ...data, squadId: activeSquad?.id }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries();
       setShowCreateModal(false);
     },
     onError: (err: any) => alert(err.response?.data?.message || 'Failed to create session.'),
   });
 
   const role = user?.role;
+  const canManage = role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER' || role === 'CAPTAIN';
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Attendance Sessions</h1>
-          <p className="text-zinc-500 text-sm mt-1">All historical and current practice sessions.</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-zinc-50">Attendance Sessions</h1>
+            {activeSquad && (
+              <span
+                className="text-xs px-2.5 py-0.5 rounded-full font-semibold border"
+                style={{
+                  backgroundColor: `${accentColor}20`,
+                  color: accentColor,
+                  borderColor: `${accentColor}40`,
+                }}
+              >
+                {activeSport?.name} → {activeCategory?.name}
+              </span>
+            )}
+          </div>
+          <p className="text-zinc-500 text-sm mt-1">
+            Historical and current practice sessions for {activeSquad?.name || 'squad'}.
+          </p>
         </div>
-        {(role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && (
+        {canManage && (
           <div className="flex gap-2">
             <Link to="/attendance" className="btn-secondary btn-sm">
               <CalendarDays className="w-4 h-4" /> Today

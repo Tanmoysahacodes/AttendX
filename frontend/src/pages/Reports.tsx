@@ -3,11 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Download, FileSpreadsheet } from 'lucide-react';
 import api from '../lib/api';
 import { formatDate, exportFile } from '../lib/utils';
+import { useSquad } from '../context/SquadContext';
 
 export default function Reports() {
+  const { activeSquad } = useSquad();
   const { data: sessions = [], isLoading } = useQuery({
-    queryKey: ['sessions-reports'],
-    queryFn: () => api.get('/attendance/sessions').then(r => r.data.data),
+    queryKey: ['sessions-reports', activeSquad?.id],
+    queryFn: () => api.get('/attendance/sessions', { params: { squadId: activeSquad?.id } }).then(r => r.data.data),
   });
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
@@ -19,7 +21,8 @@ export default function Reports() {
     }
     try {
       const response = await api.get(`/stats/export/csv?sessionId=${selectedSessionId}`, { responseType: 'blob' });
-      await exportFile(response.data, 'attendance_report.csv');
+      const squadPrefix = activeSquad?.name ? `${activeSquad.name.replace(/\s+/g, '_')}_` : '';
+      await exportFile(response.data, `${squadPrefix}attendance_report.csv`);
     } catch (error) {
       console.error('Failed to export CSV', error);
       alert('Failed to export report.');

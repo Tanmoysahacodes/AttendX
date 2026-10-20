@@ -1,25 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, Users, Sun, CalendarDays } from 'lucide-react';
 import api from '../lib/api';
+import { useSquad } from '../context/SquadContext';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend
 } from 'recharts';
 import { formatDateShort } from '../lib/utils';
 
 export default function Analytics() {
+  const { activeSquad, activeSport, activeCategory, accentColor } = useSquad();
+
   const { data: trend = [], isLoading: trendLoading } = useQuery({
-    queryKey: ['analytics-trend'],
-    queryFn: () => api.get('/stats/trend?limit=60').then(r => r.data.data),
+    queryKey: ['analytics-trend', activeSquad?.id],
+    queryFn: () => api.get('/stats/trend', { params: { limit: 60, squadId: activeSquad?.id } }).then(r => r.data.data),
   });
 
   const { data: teamStats, isLoading: statsLoading } = useQuery({
-    queryKey: ['team-stats'],
-    queryFn: () => api.get('/stats/team').then(r => r.data.data),
+    queryKey: ['team-stats', activeSquad?.id],
+    queryFn: () => api.get('/stats/team', { params: { squadId: activeSquad?.id } }).then(r => r.data.data),
   });
 
   const { data: playerAnalytics = [], isLoading: playersLoading } = useQuery({
-    queryKey: ['player-analytics'],
-    queryFn: () => api.get('/stats/player-analytics').then(r => r.data.data),
+    queryKey: ['player-analytics', activeSquad?.id],
+    queryFn: () => api.get('/stats/player-analytics', { params: { squadId: activeSquad?.id } }).then(r => r.data.data),
   });
 
   const isLoading = trendLoading || statsLoading;
@@ -28,8 +31,24 @@ export default function Analytics() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-50">Team Analytics</h1>
-        <p className="text-zinc-500 text-sm mt-1">Deep dive into team attendance performance.</p>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-zinc-50">Team Analytics</h1>
+          {activeSquad && (
+            <span
+              className="text-xs px-2.5 py-0.5 rounded-full font-semibold border"
+              style={{
+                backgroundColor: `${accentColor}20`,
+                color: accentColor,
+                borderColor: `${accentColor}40`,
+              }}
+            >
+              {activeSport?.name} → {activeCategory?.name}
+            </span>
+          )}
+        </div>
+        <p className="text-zinc-500 text-sm mt-1">
+          Attendance performance and distribution for {activeSquad?.name || 'squad'}.
+        </p>
       </div>
 
       {/* Team Overview Cards */}

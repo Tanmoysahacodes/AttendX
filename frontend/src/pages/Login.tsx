@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, User, Hash, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import api from '../lib/api';
-import logoUrl from '../assets/logo.png';
+import shardaLogoUrl from '../assets/sharda-sports-society-logo.png';
 
 export default function Login() {
   const [mode, setMode] = useState<'player' | 'staff'>('player');
@@ -73,13 +73,25 @@ export default function Login() {
       </div>
 
       <div className="w-full max-w-sm relative z-10 animate-slide-up">
-        {/* Logo / Brand */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-24 h-24 mb-4">
-            <img src={logoUrl} alt="AttendX Logo" className="w-full h-full object-contain" />
+        {/* Sharda Sports Society Branding */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-28 h-28 mb-3 bg-white/5 rounded-2xl p-2 border border-white/10 shadow-lg backdrop-blur-sm">
+            <img
+              src={shardaLogoUrl}
+              alt="Sharda Sports Society"
+              className="w-full h-full object-contain"
+            />
           </div>
-          <h1 className="text-4xl font-black text-zinc-50 tracking-tight">Attend<span className="text-brand-500">X</span></h1>
-          <p className="text-zinc-500 text-xs mt-2 tracking-[0.25em] uppercase">Team Attendance Platform</p>
+          <h1 className="text-xl font-bold text-zinc-100 tracking-tight">
+            Welcome to Sharda Sports Society
+          </h1>
+          <p className="text-zinc-400 text-xs mt-1 font-medium">
+            One community. Many sports. One spirit.
+          </p>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mt-2 rounded-full bg-surface-secondary border border-surface-border text-[11px] font-semibold text-zinc-400">
+            <span>Powered by</span>
+            <span className="font-black text-zinc-200">Attend<span className="text-brand-500">X</span></span>
+          </div>
         </div>
 
         {/* Mode tabs */}
