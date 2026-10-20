@@ -11,6 +11,10 @@ async function resolveSquadId(req: any): Promise<string | undefined> {
     const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
     return me?.squadId ?? undefined;
   }
+  if (role === 'COACH') {
+    const coach = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+    if (coach?.squadId) return coach.squadId;
+  }
   return (req.query.squadId || req.headers['x-squad-id']) as string | undefined;
 }
 

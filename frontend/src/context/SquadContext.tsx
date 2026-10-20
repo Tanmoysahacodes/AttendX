@@ -130,7 +130,19 @@ export function SquadProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // For Admin, Coach, Sports Officer: restore last valid selected squad or prompt on login
+    // Coaches with an assigned squad are locked to that squad
+    if (user.role === 'COACH') {
+      const coachSquadId = (user as any).squadId || (user as any).squad?.id;
+      if (coachSquadId) {
+        setActiveSquadIdState(coachSquadId);
+        localStorage.setItem('attendx_active_squad_id', coachSquadId);
+        setIsOverallViewState(false);
+        setIsSelectorOpenState(false);
+        return;
+      }
+    }
+
+    // For Admin and Sports Officer (or unassigned Coach): restore last valid selected squad or prompt on login
     const shouldPrompt = localStorage.getItem('attendx_prompt_squad_selection') === 'true';
     const savedOverall = localStorage.getItem('attendx_is_overall_view');
     const isOverallUser = ['ADMIN', 'SPORTS_OFFICER'].includes(user.role);
@@ -179,7 +191,11 @@ export function SquadProvider({ children }: { children: React.ReactNode }) {
 
   // Switch active squad
   const setActiveSquadId = useCallback((squadId: string) => {
-    if (user?.role === 'PLAYER' || user?.role === 'CAPTAIN') return; // restricted
+    if (
+      user?.role === 'PLAYER' ||
+      user?.role === 'CAPTAIN' ||
+      (user?.role === 'COACH' && Boolean((user as any).squadId || (user as any).squad?.id))
+    ) return; // restricted
     setActiveSquadIdState(squadId);
     setIsOverallViewState(false);
     localStorage.setItem('attendx_is_overall_view', 'false');

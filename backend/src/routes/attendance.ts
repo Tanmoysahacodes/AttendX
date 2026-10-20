@@ -22,12 +22,17 @@ function todayDate(): Date {
 
 // Helper: resolve squadId from request context
 // - Players and Captains are always scoped to their own squad
-// - Admin/Coach/Sports Officer use query param or x-squad-id header
+// - Coaches with assigned squad are scoped to their squad
+// - Admin/Sports Officer use query param or x-squad-id header
 async function resolveSquadId(req: any): Promise<string | undefined> {
   const role = req.user.role;
   if (role === 'PLAYER' || role === 'CAPTAIN') {
     const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
     return me?.squadId ?? undefined;
+  }
+  if (role === 'COACH') {
+    const coach = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+    if (coach?.squadId) return coach.squadId;
   }
   const squadId = (req.query.squadId || req.headers['x-squad-id']) as string | undefined;
   return squadId;
@@ -53,6 +58,11 @@ router.get('/session/today', requireAuth, async (req, res) => {
         squad: { include: { category: { include: { sport: true } } } },
       },
     });
+
+    if (session && req.user.role === 'PLAYER') {
+      session.records = session.records.filter((r: any) => r.playerId === req.user.id);
+    }
+
     res.json({ success: true, data: session });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });
@@ -176,6 +186,14 @@ router.get('/sessions/:id', requireAuth, async (req, res) => {
     if (req.user.role === 'CAPTAIN') {
       const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
       if (me?.squadId !== session.squadId) return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    // Coach access check (if coach is assigned to a squad)
+    if (req.user.role === 'COACH') {
+      const coach = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (coach?.squadId && session.squadId && coach.squadId !== session.squadId) {
+        return res.status(403).json({ success: false, message: 'Access denied. Session belongs to another squad.' });
+      }
     }
 
     // If player role, filter to own record

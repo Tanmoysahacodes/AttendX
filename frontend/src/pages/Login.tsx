@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, User, Hash, Eye, EyeOff, AlertCircle } from 'lucide-react';
@@ -14,14 +14,28 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isWarmingUp, setIsWarmingUp] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // Pre-warm backend container (Render free tier) on page load
+  useEffect(() => {
+    const healthUrl = (api.defaults.baseURL || '').replace('/api', '') + '/health';
+    fetch(healthUrl, { method: 'GET' }).catch(() => {});
+  }, []);
+
   const handleError = (err: any) => {
+    setIsWarmingUp(false);
     if (!err.response) {
-      setError('Unable to connect to server.');
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        setError('Server is waking up (cold start). Please try again in a few seconds.');
+      } else {
+        setError('Unable to connect to server. Please check your internet connection and try again.');
+      }
     } else if (err.response.status === 401) {
-      setError('Invalid credentials.');
+      setError(err.response?.data?.message || 'Invalid credentials.');
+    } else if (err.response.status === 403) {
+      setError(err.response?.data?.message || 'Account is inactive or access denied.');
     } else if (err.response.status === 404) {
       setError('Endpoint not found (404).');
     } else if (err.response.status >= 500) {
@@ -35,11 +49,17 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    const warmTimer = setTimeout(() => setIsWarmingUp(true), 2500);
+
     try {
       const res = await api.post('/auth/login/player', { name: name.trim(), systemId: systemId.trim() });
+      clearTimeout(warmTimer);
+      setIsWarmingUp(false);
       login(res.data.data.token, res.data.data.user);
       navigate('/');
     } catch (err: any) {
+      clearTimeout(warmTimer);
       handleError(err);
     } finally {
       setLoading(false);
@@ -50,11 +70,17 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    const warmTimer = setTimeout(() => setIsWarmingUp(true), 2500);
+
     try {
-      const res = await api.post('/auth/login', { username, password });
+      const res = await api.post('/auth/login', { username: username.trim(), password });
+      clearTimeout(warmTimer);
+      setIsWarmingUp(false);
       login(res.data.data.token, res.data.data.user);
       navigate('/');
     } catch (err: any) {
+      clearTimeout(warmTimer);
       handleError(err);
     } finally {
       setLoading(false);
@@ -160,7 +186,7 @@ export default function Login() {
               </div>
             </div>
             <button type="submit" className="btn-primary btn-lg w-full mt-2" disabled={loading}>
-              {loading ? 'Entering...' : 'ENTER TEAM'}
+              {loading ? (isWarmingUp ? 'Waking up server...' : 'Entering...') : 'ENTER TEAM'}
             </button>
           </form>
         )}
@@ -201,7 +227,7 @@ export default function Login() {
               </div>
             </div>
             <button type="submit" className="btn-primary btn-lg w-full mt-2" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (isWarmingUp ? 'Connecting to server...' : 'Signing in...') : 'Sign In'}
             </button>
           </form>
         )}

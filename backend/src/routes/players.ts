@@ -23,17 +23,52 @@ async function resolveSquadId(req: any, res: any): Promise<string | null | undef
     return me?.squadId;
   }
 
-  // Admin, Coach, Sports Officer — use squadId from query param or header
+  if (role === 'COACH') {
+    // Coach: access only to their assigned squad's players
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+    if (me?.squadId) {
+      return me.squadId;
+    }
+    const squadId = (req.query.squadId || req.headers['x-squad-id']) as string | undefined;
+    return squadId || undefined;
+  }
+
+  // Admin and Sports Officer — use squadId from query param or header
   const squadId = (req.query.squadId || req.headers['x-squad-id']) as string | undefined;
-  return squadId || undefined; // undefined means no filter (show all for admin)
+  return squadId || undefined; // undefined means no filter (show all for admin / sports officer)
 }
 
-// ─── Get all players (squad-scoped for non-admin) ─────────────────────────────
+// ─── Get all players (strictly scoped by role) ──────────────────────────────
 router.get('/', requireAuth, async (req, res) => {
   try {
+    const role = req.user.role;
+
+    // Strict RBAC: Players can ONLY access their own player profile
+    if (role === 'PLAYER') {
+      const me = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        include: {
+          squad: { include: { category: { include: { sport: true } } } },
+        },
+      });
+      if (!me) return res.json({ success: true, data: [] });
+
+      const squadFilter = me.squadId ? { squadId: me.squadId } : {};
+      const sessionCount = await prisma.attendanceSession.count({ where: { status: 'FINALIZED', ...squadFilter } });
+      const recordWhere: any = { playerId: me.id, status: 'PRESENT', session: { status: 'FINALIZED' } };
+      if (me.squadId) recordWhere.session.squadId = me.squadId;
+      const presentCount = sessionCount > 0 ? await prisma.attendanceRecord.count({ where: recordWhere }) : 0;
+      const attendancePct = sessionCount > 0 ? Math.round((presentCount / sessionCount) * 100) : null;
+
+      return res.json({
+        success: true,
+        data: [{ ...safe(me), attendancePct, presentCount, totalSessions: sessionCount }],
+      });
+    }
+
     const squadId = await resolveSquadId(req, res);
 
-    // For ADMIN without a squadId filter, return all players
+    // For ADMIN / SPORTS_OFFICER without a squadId filter, return all players
     const whereClause: any = {
       OR: [
         { role: { in: ['PLAYER', 'CAPTAIN'] } },
@@ -85,14 +120,22 @@ router.get('/:id', requireAuth, async (req, res) => {
 
     // Players can only view their own profile
     if (req.user.role === 'PLAYER' && req.params.id !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'Access denied.' });
+      return res.status(403).json({ success: false, message: 'Access denied. You can only view your own profile.' });
     }
 
     // Captains can only view players in their own squad
     if (req.user.role === 'CAPTAIN') {
       const captain = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
       if (captain?.squadId && player.squadId !== captain.squadId) {
-        return res.status(403).json({ success: false, message: 'Access denied.' });
+        return res.status(403).json({ success: false, message: 'Access denied. Player belongs to another squad.' });
+      }
+    }
+
+    // Coaches can only view players in their assigned squad
+    if (req.user.role === 'COACH') {
+      const coach = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (coach?.squadId && player.squadId !== coach.squadId) {
+        return res.status(403).json({ success: false, message: 'Access denied. Player belongs to another squad.' });
       }
     }
 
@@ -228,11 +271,27 @@ router.get('/:id/attendance', requireAuth, async (req, res) => {
   try {
     // Players can only view their own
     if (req.user.role === 'PLAYER' && req.params.id !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'Access denied.' });
+      return res.status(403).json({ success: false, message: 'Access denied. You can only view your own attendance.' });
     }
 
     // Get player's squad to scope DAY_OFF sessions
     const player = await prisma.user.findUnique({ where: { id: req.params.id }, select: { squadId: true } });
+
+    // Captains can only view attendance for players in their own squad
+    if (req.user.role === 'CAPTAIN') {
+      const captain = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (captain?.squadId && player?.squadId !== captain.squadId) {
+        return res.status(403).json({ success: false, message: 'Access denied. Player belongs to another squad.' });
+      }
+    }
+
+    // Coaches can only view attendance for players in their assigned squad
+    if (req.user.role === 'COACH') {
+      const coach = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (coach?.squadId && player?.squadId !== coach.squadId) {
+        return res.status(403).json({ success: false, message: 'Access denied. Player belongs to another squad.' });
+      }
+    }
 
     const records = await prisma.attendanceRecord.findMany({
       where: { playerId: req.params.id },
@@ -267,7 +326,13 @@ router.get('/:id/attendance', requireAuth, async (req, res) => {
 // ─── CSV export for players (squad-scoped) ────────────────────────────────────
 router.get('/export/csv', requireAuth, requireRole('ADMIN', 'COACH', 'SPORTS_OFFICER'), async (req, res) => {
   try {
-    const squadId = req.query.squadId as string | undefined;
+    let squadId = req.query.squadId as string | undefined;
+
+    // Coaches can only export players in their assigned squad
+    if (req.user.role === 'COACH') {
+      const coach = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (coach?.squadId) squadId = coach.squadId;
+    }
 
     const whereClause: any = { role: { in: ['PLAYER', 'CAPTAIN'] } };
     if (squadId) whereClause.squadId = squadId;

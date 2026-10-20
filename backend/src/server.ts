@@ -72,14 +72,21 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://localhost',
+  'http://localhost',
+  'capacitor://localhost',
   'https://attend-x-woad.vercel.app'
 ];
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
+  const isAllowed = !origin ||
+    allowedOrigins.includes(origin) ||
+    origin.startsWith('capacitor://') ||
+    origin.endsWith('.vercel.app');
+
+  if (isAllowed) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header(
       'Access-Control-Allow-Methods',
@@ -87,7 +94,7 @@ app.use((req, res, next) => {
     );
     res.header(
       'Access-Control-Allow-Headers',
-      'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+      'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-squad-id'
     );
   }
 
