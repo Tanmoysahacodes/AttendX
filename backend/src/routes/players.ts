@@ -226,6 +226,7 @@ router.patch('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
     const data = z.object({
       name: z.string().min(1).optional(),
+      systemId: z.string().nullable().optional(),
       jerseyNumber: z.string().nullable().optional(), // optional, can be cleared
       position: z.string().nullable().optional(),
       description: z.string().nullable().optional(),
@@ -235,6 +236,15 @@ router.patch('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
       email: z.string().nullable().optional(),
       squadId: z.string().nullable().optional(),
     }).parse(req.body);
+
+    if (data.systemId) {
+      const existing = await prisma.user.findFirst({
+        where: { systemId: data.systemId, id: { not: req.params.id } }
+      });
+      if (existing) {
+        return res.status(400).json({ success: false, message: `System ID ${data.systemId} is already in use by ${existing.name}.` });
+      }
+    }
 
     const player = await prisma.user.update({ where: { id: req.params.id }, data });
     await prisma.auditLog.create({ data: { userId: req.user.id, action: 'PLAYER_UPDATED', entityType: 'USER', entityId: player.id } });

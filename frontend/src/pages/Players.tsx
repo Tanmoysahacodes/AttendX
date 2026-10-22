@@ -26,6 +26,7 @@ const playerSchema = z.object({
 
 const playerEditSchema = z.object({
   name: z.string().min(1, 'Name is required'),
+  systemId: z.string().optional().or(z.literal('')),
   jerseyNumber: z.string().optional().or(z.literal('')),
   position: z.string().optional().or(z.literal('')),
   description: z.string().optional().or(z.literal('')),
@@ -438,6 +439,7 @@ export default function Players() {
                             onClick={() => {
                               setShowEditModal(p);
                               setEditValue('name', p.name);
+                              setEditValue('systemId', p.systemId || '');
                               setEditValue('jerseyNumber', p.jerseyNumber || '');
                               setEditValue('position', p.position || '');
                               setEditValue('description', p.description || '');
@@ -561,6 +563,10 @@ export default function Players() {
                 <label className="label">Full Name</label>
                 <input {...regEdit('name')} className="input" />
                 {editErrors.name && <p className="text-red-400 text-xs mt-1">{editErrors.name.message as string}</p>}
+              </div>
+              <div>
+                <label className="label">System ID</label>
+                <input {...regEdit('systemId')} className="input font-mono" placeholder="e.g. 2025265270" />
               </div>
               <div>
                 <label className="label">Jersey Number (Optional — clear to remove)</label>

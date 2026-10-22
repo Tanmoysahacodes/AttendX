@@ -53,7 +53,7 @@ async function main() {
   const ajitPass = '155098';
   const ajitHash = await bcrypt.hash(ajitPass, 10);
   await prisma.user.upsert({
-    where: { systemId: '202526527' },
+    where: { systemId: '2025265270' },
     update: {
       name: 'Ajit',
       username: 'ajit',
@@ -69,7 +69,7 @@ async function main() {
       username: 'ajit',
       passwordHash: ajitHash,
       jerseyNumber: '18',
-      systemId: '202526527',
+      systemId: '2025265270',
       role: 'ADMIN',
       status: 'ACTIVE',
       position: 'Left Corner',
