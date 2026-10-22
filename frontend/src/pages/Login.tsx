@@ -150,12 +150,12 @@ export default function Login() {
         {mode === 'player' && (
           <form onSubmit={handlePlayerLogin} className="space-y-4">
             <div>
-              <label className="label">Full Name</label>
+              <label className="label">Full Name / User ID</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
                   type="text"
-                  placeholder="Enter your name"
+                  placeholder="Enter name or User ID (e.g. Ajit)"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   className="input pl-10"
@@ -165,12 +165,12 @@ export default function Login() {
               </div>
             </div>
             <div>
-              <label className="label">System ID</label>
+              <label className="label">System ID / Password</label>
               <div className="relative">
                 <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter System ID"
+                  placeholder="Enter System ID (e.g. 155098)"
                   value={systemId}
                   onChange={e => setSystemId(e.target.value)}
                   className="input pl-10 pr-10"
@@ -195,10 +195,10 @@ export default function Login() {
         {mode === 'staff' && (
           <form onSubmit={handleStaffLogin} className="space-y-4">
             <div>
-              <label className="label">Username</label>
+              <label className="label">User ID / Username</label>
               <input
                 type="text"
-                placeholder="admin / coach"
+                placeholder="Admin / Coach"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 className="input"
@@ -211,7 +211,7 @@ export default function Login() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter password"
+                  placeholder="Enter password (e.g. admin@123)"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   className="input pr-10"

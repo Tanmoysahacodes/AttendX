@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useSquad } from '../context/SquadContext';
 import api from '../lib/api';
-import { formatDate, getGreeting, getInitials } from '../lib/utils';
+import { formatDate, formatDateShort, getGreeting, getInitials } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import {
   Users, ClipboardList, TrendingUp, CheckCircle2, XCircle,
@@ -184,7 +184,7 @@ export default function Dashboard() {
 
   const { data: trend = [] } = useQuery({
     queryKey: ['trend', activeSquad?.id],
-    queryFn: () => api.get('/stats/trend', { params: { limit: 14, squadId: activeSquad?.id } }).then(r => r.data.data),
+    queryFn: () => api.get('/stats/trend', { params: { days: 14, squadId: activeSquad?.id } }).then(r => r.data.data),
     enabled: role !== 'PLAYER',
   });
 
@@ -385,35 +385,59 @@ export default function Dashboard() {
           </div>
 
           {/* Attendance Trend Chart */}
-          {trend.length > 0 && (
+          {(() => {
+            const trendWithData = trend.filter((t: any) => t.pct !== null);
+            if (trend.length === 0) return null;
+            return (
             <div className="card p-5">
               <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-4">
                 14-Day Attendance Trend ({activeSquad?.name || 'Squad'})
               </h2>
+              {trendWithData.length === 0 ? (
+                <div className="h-48 flex items-center justify-center text-zinc-500 text-sm">
+                  No finalized sessions in the last 14 days.
+                </div>
+              ) : (
               <div className="h-48 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trend}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                    <XAxis dataKey="date" stroke="#71717a" fontSize={11} tickFormatter={d => d.slice(5)} />
+                    <XAxis
+                      dataKey="date"
+                      stroke="#71717a"
+                      fontSize={11}
+                      tickFormatter={(d) => formatDateShort(d)}
+                    />
                     <YAxis stroke="#71717a" fontSize={11} domain={[0, 100]} unit="%" />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
-                      labelStyle={{ color: '#e4e4e7' }}
-                      formatter={(v: any) => [`${v}%`, 'Attendance']}
+                      contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px', fontSize: '12px' }}
+                      labelStyle={{ color: '#e4e4e7', fontWeight: 600, marginBottom: '4px' }}
+                      labelFormatter={(l) => formatDate(l as string)}
+                      formatter={(v: any, _name: any, item: any) => {
+                        if (v === null || v === undefined) return ['No session conducted', 'Status'];
+                        const payload = item?.payload;
+                        return [
+                          `${v}% (${payload?.present ?? 0} present, ${payload?.absent ?? 0} absent of ${payload?.total ?? 0} players)`,
+                          'Attendance'
+                        ];
+                      }}
                     />
                     <Line
                       type="monotone"
-                      dataKey="rate"
+                      dataKey="pct"
                       stroke={accentColor}
                       strokeWidth={2.5}
                       dot={{ fill: accentColor, r: 3 }}
                       activeDot={{ r: 5 }}
+                      connectNulls={false}
                     />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+              )}
             </div>
-          )}
+            );
+          })()} 
 
           {/* New Squad Notice if 0 sessions conducted yet */}
           {stats?.finalizedSessions === 0 && (

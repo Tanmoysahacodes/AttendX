@@ -17,8 +17,11 @@ router.post('/login/player', async (req, res) => {
 
     const player = await prisma.user.findFirst({
       where: {
-        name: { equals: name.trim(), mode: 'insensitive' },
-        systemId: systemId.trim(),
+        OR: [
+          { name: { equals: name.trim(), mode: 'insensitive' } },
+          { username: { equals: name.trim(), mode: 'insensitive' } },
+        ],
+        systemId: { equals: systemId.trim(), mode: 'insensitive' },
         status: 'ACTIVE',
       },
       include: {
@@ -32,7 +35,33 @@ router.post('/login/player', async (req, res) => {
           },
         },
       },
-    });
+    }) || await (async () => {
+      const candidate = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { name: { equals: name.trim(), mode: 'insensitive' } },
+            { username: { equals: name.trim(), mode: 'insensitive' } },
+          ],
+          status: 'ACTIVE',
+        },
+        include: {
+          squad: {
+            include: {
+              category: {
+                include: {
+                  sport: true,
+                },
+              },
+            },
+          },
+        },
+      });
+      if (candidate && candidate.passwordHash) {
+        const isMatch = await bcrypt.compare(systemId.trim(), candidate.passwordHash);
+        if (isMatch) return candidate;
+      }
+      return null;
+    })();
 
     if (!player) {
       return res.status(401).json({ success: false, message: 'No player found with that name and System ID.' });
@@ -48,7 +77,7 @@ router.post('/login/player', async (req, res) => {
     const token = jwt.sign(
       { userId: player.id, role: player.role },
       process.env.JWT_ACCESS_SECRET!,
-      { expiresIn: '12h' }
+      { expiresIn: '30d' }
     );
 
     const { passwordHash: _, ...safePlayer } = player as any;
@@ -69,8 +98,8 @@ router.post('/login', async (req, res) => {
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { username: username },
-          { name: { equals: username, mode: 'insensitive' } },
+          { username: { equals: username.trim(), mode: 'insensitive' } },
+          { name: { equals: username.trim(), mode: 'insensitive' } },
         ],
         role: { in: ['ADMIN', 'COACH', 'SPORTS_OFFICER', 'CAPTAIN'] },
       },
@@ -109,7 +138,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_ACCESS_SECRET!,
-      { expiresIn: '12h' }
+      { expiresIn: '30d' }
     );
 
     const { passwordHash: _, ...safeUser } = user as any;

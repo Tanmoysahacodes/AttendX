@@ -86,7 +86,15 @@ export default function Attendance() {
     onSuccess: () => {
       queryClient.invalidateQueries();
     },
-    onError: (err: any) => alert(err.response?.data?.message || 'Failed to create session.'),
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || 'Failed to create session.';
+      // If a session already exists (server returned it), just reload
+      if (err.response?.status === 400 && err.response?.data?.data) {
+        queryClient.invalidateQueries();
+      } else {
+        alert(msg);
+      }
+    },
   });
 
   const saveMutation = useMutation({
@@ -210,7 +218,7 @@ export default function Attendance() {
           <div className="flex gap-3 justify-center flex-wrap">
             {(role === 'ADMIN' || role === 'COACH' || role === 'SPORTS_OFFICER') && (
               <>
-                <button onClick={() => createSessionMutation.mutate()} disabled={createSessionMutation.isPending} className="btn-primary">
+                <button onClick={() => createSessionMutation.mutate()} disabled={createSessionMutation.isPending || sessionsLoading} className="btn-primary">
                   <Plus className="w-4 h-4" /> Create Practice Session
                 </button>
                 <button onClick={() => setShowDayOffModal(true)} className="btn-secondary">

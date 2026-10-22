@@ -18,6 +18,7 @@ import Reports from './pages/Reports';
 import Staff from './pages/Staff';
 import AuditLogs from './pages/AuditLogs';
 import About from './pages/About';
+import { useAndroidBack } from './lib/useAndroidBack';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,12 +49,18 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
   return <>{children}</>;
 }
 
+function AndroidBackHandler() {
+  useAndroidBack();
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SquadProvider>
           <BrowserRouter>
+            <AndroidBackHandler />
             <Routes>
               <Route path="/login" element={<Login />} />
               

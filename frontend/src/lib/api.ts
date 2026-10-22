@@ -54,6 +54,7 @@ api.interceptors.response.use(
     // avoid breaking the Android WebView routing.
     if (err.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('token');
+      localStorage.removeItem('attendx_user');
       if (isNative) {
         // For Capacitor Android: use React Router navigation (set flag, let AuthContext handle it)
         window.dispatchEvent(new CustomEvent('attendx:session-expired'));

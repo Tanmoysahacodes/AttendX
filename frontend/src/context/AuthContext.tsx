@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 
+import { Capacitor } from '@capacitor/core';
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -26,6 +28,7 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 // never bleeds into another user's session on the same device.
 const SESSION_STORAGE_KEYS = [
   'token',
+  'attendx_user',
   'attendx_active_squad_id',
   'attendx_prompt_squad_selection',
   'attendx_is_overall_view',
@@ -43,8 +46,25 @@ function clearUserSpecificKeys() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Initialize user synchronously from localStorage so UI is instant and doesn't flicker or flash login
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const token = localStorage.getItem('token');
+      const saved = localStorage.getItem('attendx_user');
+      if (token && saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // ignore parse error
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState(() => {
+    // If we already have token and cached user, we are ready to display UI immediately
+    return !localStorage.getItem('token');
+  });
+
   const queryClient = useQueryClient();
 
   const doLogout = useCallback(() => {
@@ -60,8 +80,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.get('/auth/me');
       setUser(res.data.data);
-    } catch {
-      doLogout();
+      localStorage.setItem('attendx_user', JSON.stringify(res.data.data));
+    } catch (err: any) {
+      // ONLY logout if explicitly unauthorized (401 or 403)
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        doLogout();
+      }
+      // For network errors, timeouts, or server cold starts, keep the persisted session!
     }
   }, [doLogout]);
 
@@ -74,11 +99,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refreshUser]);
 
+  // Handle Android resume lifecycle: re-verify session in background without clearing state on network blip
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let cleanup: (() => void) | null = null;
+    import('@capacitor/app').then(({ App }) => {
+      App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive && localStorage.getItem('token')) {
+          refreshUser();
+        }
+      }).then(handle => {
+        cleanup = () => handle.remove();
+      });
+    }).catch(() => {});
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [refreshUser]);
+
   // Handle session expiry on Capacitor Android (dispatched by api.ts interceptor)
   useEffect(() => {
     const handleSessionExpired = () => {
       doLogout();
-      // Use React state change — the ProtectedRoute will redirect to /login automatically
     };
     window.addEventListener('attendx:session-expired', handleSessionExpired);
     return () => window.removeEventListener('attendx:session-expired', handleSessionExpired);
@@ -92,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearUserSpecificKeys();
 
     localStorage.setItem('token', token);
+    localStorage.setItem('attendx_user', JSON.stringify(userData));
     if (['ADMIN', 'COACH', 'SPORTS_OFFICER'].includes(userData.role)) {
       localStorage.setItem('attendx_prompt_squad_selection', 'true');
     }

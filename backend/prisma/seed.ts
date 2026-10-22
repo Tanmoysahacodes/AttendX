@@ -26,29 +26,51 @@ const players = [
 ];
 
 async function main() {
-  // Seed admin (Ajit) - keeping Ajit as ADMIN so they can manage the team
-  const adminUsername = process.env.SEED_ADMIN_USERNAME || 'ajit';
+  // Seed dedicated admin
+  const adminUsername = process.env.SEED_ADMIN_USERNAME || 'admin';
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin@123';
   const adminHash = await bcrypt.hash(adminPassword, 10);
   
   await prisma.user.upsert({
-    where: { jerseyNumber: '18' },
+    where: { username: adminUsername },
     update: {
-      name: 'Ajit',
+      name: 'Admin',
+      passwordHash: adminHash,
+      role: 'ADMIN',
+      status: 'ACTIVE',
+    },
+    create: {
+      name: 'Admin',
       username: adminUsername,
       passwordHash: adminHash,
       role: 'ADMIN',
       status: 'ACTIVE',
+      email: 'admin@ug.sharda.ac.in',
+    },
+  });
+
+  // Seed player Ajit
+  const ajitPass = '155098';
+  const ajitHash = await bcrypt.hash(ajitPass, 10);
+  await prisma.user.upsert({
+    where: { systemId: '202526527' },
+    update: {
+      name: 'Ajit',
+      username: 'ajit',
+      passwordHash: ajitHash,
+      role: 'PLAYER',
+      status: 'ACTIVE',
+      jerseyNumber: '18',
       position: 'Left Corner',
       description: 'Strong defensive player known for ankle holds, diving tackles, blocks and chain tackles. Aggressive and effective in pressure situations.'
     },
     create: {
       name: 'Ajit',
-      username: adminUsername,
-      passwordHash: adminHash,
+      username: 'ajit',
+      passwordHash: ajitHash,
       jerseyNumber: '18',
-      systemId: '155098',
-      role: 'ADMIN',
+      systemId: '202526527',
+      role: 'PLAYER',
       status: 'ACTIVE',
       position: 'Left Corner',
       description: 'Strong defensive player known for ankle holds, diving tackles, blocks and chain tackles. Aggressive and effective in pressure situations.'

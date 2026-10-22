@@ -71,6 +71,8 @@ router.get('/session/today', requireAuth, async (req, res) => {
 
 // ─── Create session (squad-scoped) ────────────────────────────────────────────
 router.post('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
+  let squadId: string | undefined;
+  let sessionDate: Date | undefined;
   try {
     const { date, sessionType, title, notes, location, startTime, squadId: bodySquadId } = z.object({
       date: z.string().optional(),
@@ -83,7 +85,7 @@ router.post('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OF
     }).parse(req.body);
 
     const resolvedSquadId = await resolveSquadId(req);
-    const squadId = resolvedSquadId ?? bodySquadId;
+    squadId = resolvedSquadId ?? bodySquadId;
 
     if (!squadId) {
       return res.status(400).json({ success: false, message: 'squadId is required. Select a squad first.' });
@@ -100,7 +102,7 @@ router.post('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OF
       if (me?.squadId !== squadId) return res.status(403).json({ success: false, message: 'Captains can only manage their own squad.' });
     }
 
-    const sessionDate = date ? parseDate(date) : todayDate();
+    sessionDate = date ? parseDate(date) : todayDate();
 
     const existing = await prisma.attendanceSession.findFirst({ where: { date: sessionDate, squadId } });
     if (existing) {
@@ -128,6 +130,15 @@ router.post('/sessions', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OF
 
     res.json({ success: true, data: session });
   } catch (e: any) {
+    // P2002 = unique constraint violation — a session for this date/squad was race-created
+    if (e?.code === 'P2002') {
+      const existing2 = await prisma.attendanceSession.findFirst({ where: { date: sessionDate, squadId } }).catch(() => null);
+      return res.status(400).json({
+        success: false,
+        message: 'A session already exists for this squad on this date.',
+        data: existing2 || undefined,
+      });
+    }
     res.status(400).json({ success: false, message: e.errors?.[0]?.message || e.message });
   }
 });

@@ -10,7 +10,7 @@ const router = Router();
 // This legacy endpoint remains for backward compat but requires squadId
 router.post('/captain/assign', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
-    const { playerId, squadId } = z.object({ 
+    const { playerId, squadId } = z.object({
       playerId: z.string(),
       squadId: z.string().optional(),
     }).parse(req.body);
