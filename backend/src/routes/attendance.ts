@@ -219,15 +219,17 @@ router.get('/sessions/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ─── Delete / Cancel a session (Admin, Coach, Captain — OPEN sessions only) ───
+// ─── Delete / Cancel a session (Admin = any status; others = OPEN only) ─────
 router.delete('/sessions/:id', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const session = await prisma.attendanceSession.findUnique({ where: { id: req.params.id } });
     if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
 
-    // Only OPEN sessions can be cancelled. Finalized sessions must be reopened first.
-    if (session.status === 'FINALIZED') {
-      return res.status(400).json({ success: false, message: 'Cannot delete a finalized session. Reopen it first, then delete if needed.' });
+    const isAdmin = req.user.role === 'ADMIN';
+
+    // Non-admins can only delete OPEN sessions
+    if (!isAdmin && session.status === 'FINALIZED') {
+      return res.status(400).json({ success: false, message: 'Cannot delete a finalized session. Reopen it first, or ask an Admin.' });
     }
 
     // Captain can only cancel sessions in their own squad
@@ -245,14 +247,14 @@ router.delete('/sessions/:id', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPO
     await prisma.auditLog.create({
       data: {
         userId: req.user.id,
-        action: 'SESSION_CANCELLED',
+        action: 'SESSION_DELETED',
         entityType: 'ATTENDANCE_SESSION',
         entityId: req.params.id,
         metadata: { date: session.date, squadId: session.squadId, status: session.status },
       },
     });
 
-    res.json({ success: true, message: 'Session cancelled and removed.' });
+    res.json({ success: true, message: 'Session deleted permanently.' });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });
   }
