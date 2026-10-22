@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useSquad } from '../context/SquadContext';
-import { Check, X, CheckCircle2, ShieldAlert, Save, Lock, RefreshCw, Sun, Plus } from 'lucide-react';
+import { Check, X, CheckCircle2, ShieldAlert, Save, Lock, RefreshCw, Sun, Plus, XCircle } from 'lucide-react';
 import api from '../lib/api';
 import { formatDate, getInitials } from '../lib/utils';
 import { useSearchParams, Link } from 'react-router-dom';
@@ -135,6 +135,22 @@ export default function Attendance() {
     onError: (err: any) => alert(err.response?.data?.message || 'Failed to mark Day Off.'),
   });
 
+  const cancelSessionMutation = useMutation({
+    mutationFn: () => api.delete(`/attendance/sessions/${session?.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+    },
+    onError: (err: any) => alert(err.response?.data?.message || 'Failed to cancel session.'),
+  });
+
+  const handleCancelSession = () => {
+    if (!session) return;
+    if (!confirm(
+      'Cancel this session?\n\nThis will permanently remove the session and any attendance marks you made for today.\n\nPress OK to confirm cancellation.'
+    )) return;
+    cancelSessionMutation.mutate();
+  };
+
   const handleSave = (finalize = false) => {
     if (!canEdit) return;
     const recordsToSave = Object.entries(localRecords).map(([playerId, status]) => ({ playerId, status }));
@@ -201,13 +217,30 @@ export default function Attendance() {
               {isDayOff && session.dayOffReason && (
                 <p className="text-sm text-zinc-400 mt-0.5">Reason: {session.dayOffReason}</p>
               )}
+              {!isFinalized && !isDayOff && (
+                <p className="text-xs text-zinc-500 mt-0.5">Mark attendance below, then Save & Finalize when done.</p>
+              )}
             </div>
           </div>
-          {isFinalized && canUpdate && (
-            <button onClick={() => reopenMutation.mutate()} className="btn-secondary btn-sm">
-              <RefreshCw className="w-4 h-4" /> Update
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {isFinalized && canUpdate && (
+              <button onClick={() => reopenMutation.mutate()} className="btn-secondary btn-sm">
+                <RefreshCw className="w-4 h-4" /> Update
+              </button>
+            )}
+            {/* Cancel session — only available while OPEN, not finalized/day-off */}
+            {!isFinalized && !isDayOff && isStaffOrCaptain && (
+              <button
+                onClick={handleCancelSession}
+                disabled={cancelSessionMutation.isPending}
+                className="btn-ghost btn-sm text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                title="Cancel this session — removes it entirely"
+              >
+                <XCircle className="w-4 h-4" />
+                {cancelSessionMutation.isPending ? 'Cancelling...' : 'Cancel Session'}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -336,7 +369,15 @@ export default function Attendance() {
               <p className="text-lg font-bold text-zinc-300">{players.length}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={handleCancelSession}
+              disabled={cancelSessionMutation.isPending}
+              className="btn-ghost btn-sm text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30"
+              title="Cancel this session entirely"
+            >
+              <XCircle className="w-4 h-4" /> Cancel
+            </button>
             <button
               onClick={() => handleSave(false)}
               disabled={saving || saveMutation.isPending}

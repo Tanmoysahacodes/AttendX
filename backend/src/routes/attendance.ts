@@ -219,6 +219,45 @@ router.get('/sessions/:id', requireAuth, async (req, res) => {
   }
 });
 
+// ─── Delete / Cancel a session (Admin, Coach, Captain — OPEN sessions only) ───
+router.delete('/sessions/:id', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
+  try {
+    const session = await prisma.attendanceSession.findUnique({ where: { id: req.params.id } });
+    if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
+
+    // Only OPEN sessions can be cancelled. Finalized sessions must be reopened first.
+    if (session.status === 'FINALIZED') {
+      return res.status(400).json({ success: false, message: 'Cannot delete a finalized session. Reopen it first, then delete if needed.' });
+    }
+
+    // Captain can only cancel sessions in their own squad
+    if (req.user.role === 'CAPTAIN') {
+      const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { squadId: true } });
+      if (me?.squadId !== session.squadId) {
+        return res.status(403).json({ success: false, message: 'Captains can only manage their own squad.' });
+      }
+    }
+
+    // Delete records first, then the session
+    await prisma.attendanceRecord.deleteMany({ where: { sessionId: session.id } });
+    await prisma.attendanceSession.delete({ where: { id: session.id } });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.id,
+        action: 'SESSION_CANCELLED',
+        entityType: 'ATTENDANCE_SESSION',
+        entityId: req.params.id,
+        metadata: { date: session.date, squadId: session.squadId, status: session.status },
+      },
+    });
+
+    res.json({ success: true, message: 'Session cancelled and removed.' });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 // ─── Mark/update attendance (squad-scoped) ────────────────────────────────────
 router.post('/mark', requireAuth, requireRole('CAPTAIN', 'COACH', 'SPORTS_OFFICER', 'ADMIN'), async (req, res) => {
   try {
