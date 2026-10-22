@@ -184,90 +184,35 @@ router.get('/team', requireAuth, async (req, res) => {
   }
 });
 
-// ─── Attendance trend (calendar-based or last N FINALIZED sessions) ───────────
+// ─── Attendance trend (last N finalized sessions) ───────────────────────────
 router.get('/trend', requireAuth, async (req, res) => {
   try {
     const squadId = await resolveSquadId(req);
     const sessionWhere: any = { status: 'FINALIZED' };
     if (squadId) sessionWhere.squadId = squadId;
 
-    // Calendar-based mode: ?days=14 returns the last N calendar days with per-day data
-    // Session-based mode (legacy): ?limit=N returns last N finalized sessions
-    const daysParam = req.query.days ? Number(req.query.days) : null;
-
-    if (daysParam && daysParam > 0) {
-      // Build a list of the last N calendar days (UTC midnight)
-      const today = new Date();
-      const todayUtc = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-      const startUtc = new Date(todayUtc);
-      startUtc.setUTCDate(startUtc.getUTCDate() - (daysParam - 1));
-
-      // Fetch all finalized sessions in that window
-      const windowWhere: any = { ...sessionWhere, date: { gte: startUtc, lte: todayUtc } };
-      const sessions = await prisma.attendanceSession.findMany({
-        where: windowWhere,
-        orderBy: { date: 'asc' },
-        include: { records: true },
-      });
-
-      // Map sessions by their UTC date string for O(1) lookup
-      const sessionByDate = new Map<string, typeof sessions[0]>();
-      for (const s of sessions) {
-        const key = s.date.toISOString().slice(0, 10);
-        sessionByDate.set(key, s);
-      }
-
-      // Build calendar array — null pct on days without a finalized session
-      const data: any[] = [];
-      for (let i = 0; i < daysParam; i++) {
-        const d = new Date(startUtc);
-        d.setUTCDate(d.getUTCDate() + i);
-        const key = d.toISOString().slice(0, 10);
-        const session = sessionByDate.get(key);
-        if (session) {
-          const present = session.records.filter(r => r.status === 'PRESENT').length;
-          const absent = session.records.filter(r => r.status === 'ABSENT').length;
-          const total = session.records.length;
-          data.push({
-            date: d.toISOString(),
-            sessionType: session.sessionType,
-            present,
-            absent,
-            total,
-            pct: total > 0 ? Math.round((present / total) * 100) : 0,
-          });
-        } else {
-          data.push({
-            date: d.toISOString(),
-            sessionType: null,
-            present: null,
-            absent: null,
-            total: null,
-            pct: null,
-          });
-        }
-      }
-      return res.json({ success: true, data });
-    }
-
-    // Legacy: return last N finalized sessions (no gaps for missing days)
-    const limit = Number(req.query.limit) || 30;
+    const limit = Number(req.query.limit) || Number(req.query.days) || 14;
     const sessions = await prisma.attendanceSession.findMany({
       where: sessionWhere,
       orderBy: { date: 'desc' },
       take: limit,
       include: { records: true },
     });
-    const data = sessions.reverse().map(s => ({
-      date: s.date,
-      sessionType: s.sessionType,
-      present: s.records.filter(r => r.status === 'PRESENT').length,
-      absent: s.records.filter(r => r.status === 'ABSENT').length,
-      total: s.records.length,
-      pct: s.records.length > 0
-        ? Math.round((s.records.filter(r => r.status === 'PRESENT').length / s.records.length) * 100)
-        : 0,
-    }));
+
+    const data = sessions.reverse().map(s => {
+      const present = s.records.filter(r => r.status === 'PRESENT').length;
+      const absent = s.records.filter(r => r.status === 'ABSENT').length;
+      const total = s.records.length;
+      return {
+        date: s.date.toISOString(),
+        sessionType: s.sessionType,
+        present,
+        absent,
+        total,
+        pct: total > 0 ? Math.round((present / total) * 100) : 0,
+      };
+    });
+
     res.json({ success: true, data });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });

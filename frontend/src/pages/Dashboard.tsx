@@ -385,19 +385,15 @@ export default function Dashboard() {
           </div>
 
           {/* Attendance Trend Chart */}
-          {(() => {
-            const trendWithData = trend.filter((t: any) => t.pct !== null);
-            if (trend.length === 0) return null;
-            return (
-            <div className="card p-5">
-              <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-4">
-                14-Day Attendance Trend ({activeSquad?.name || 'Squad'})
-              </h2>
-              {trendWithData.length === 0 ? (
-                <div className="h-48 flex items-center justify-center text-zinc-500 text-sm">
-                  No finalized sessions in the last 14 days.
-                </div>
-              ) : (
+          <div className="card p-5">
+            <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-4">
+              Attendance Trend ({activeSquad?.name || 'Squad'})
+            </h2>
+            {trend.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-zinc-500 text-sm">
+                No finalized sessions yet.
+              </div>
+            ) : (
               <div className="h-48 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trend}>
@@ -427,17 +423,14 @@ export default function Dashboard() {
                       dataKey="pct"
                       stroke={accentColor}
                       strokeWidth={2.5}
-                      dot={{ fill: accentColor, r: 3 }}
-                      activeDot={{ r: 5 }}
-                      connectNulls={false}
+                      dot={{ fill: accentColor, r: 4 }}
+                      activeDot={{ r: 6 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-              )}
-            </div>
-            );
-          })()} 
+            )}
+          </div> 
 
           {/* New Squad Notice if 0 sessions conducted yet */}
           {stats?.finalizedSessions === 0 && (
