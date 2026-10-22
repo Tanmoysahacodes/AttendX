@@ -5,44 +5,91 @@ import { useSquad, type Sport, type Squad } from '../context/SquadContext';
 import {
   Trophy, Plus, Edit2, X, Shield, Users, Upload,
   CheckCircle2, ChevronDown, ChevronRight,
-  Layers
+  Layers, Trash2, AlertTriangle, ArrowRight
 } from 'lucide-react';
+
+// ─── Confirm Delete Dialog ─────────────────────────────────────────────────────
+function ConfirmDelete({
+  title, message, onConfirm, onCancel, isPending
+}: {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isPending?: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[60] animate-fade-in">
+      <div className="card p-5 max-w-sm w-full bg-red-950/60 border-red-800/50 space-y-4 animate-slide-up">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-red-900/60 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="w-5 h-5 text-red-400" />
+          </div>
+          <h3 className="font-bold text-zinc-100 text-base">{title}</h3>
+        </div>
+        <p className="text-sm text-zinc-300 leading-relaxed">{message}</p>
+        <div className="flex justify-end gap-2 pt-1">
+          <button onClick={onCancel} className="btn-ghost btn-sm">Cancel</button>
+          <button
+            onClick={onConfirm}
+            disabled={isPending}
+            className="btn-danger btn-sm"
+          >
+            {isPending ? 'Deleting...' : 'Delete Permanently'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SportsManagement() {
   const queryClient = useQueryClient();
   const { sports, refreshSports, setActiveSquadId } = useSquad();
 
-  // Dialog / Modal states
+  // ── Add Sport ──
   const [newSportOpen, setNewSportOpen] = useState(false);
   const [newSportName, setNewSportName] = useState('');
   const [newSportColor, setNewSportColor] = useState('#f97316');
 
+  // ── Edit Sport ──
+  const [editingSport, setEditingSport] = useState<Sport | null>(null);
+
+  // ── Delete Sport ──
+  const [deletingSport, setDeletingSport] = useState<Sport | null>(null);
+
+  // ── Add / Edit Category ──
   const [newCategorySportId, setNewCategorySportId] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string } | null>(null);
 
+  // ── Delete Category ──
+  const [deletingCategory, setDeletingCategory] = useState<{ id: string; name: string; sport: string } | null>(null);
+
+  // ── Add / Edit Squad ──
   const [newSquadCategoryId, setNewSquadCategoryId] = useState<string | null>(null);
   const [newSquadName, setNewSquadName] = useState('');
+  const [editingSquad, setEditingSquad] = useState<{ id: string; name: string } | null>(null);
 
-  // Editing state
-  const [editingSport, setEditingSport] = useState<Sport | null>(null);
+  // ── Delete Squad ──
+  const [deletingSquad, setDeletingSquad] = useState<{ id: string; name: string; category: string } | null>(null);
+
+  // ── Captain & Import ──
   const [captainModalSquad, setCaptainModalSquad] = useState<Squad | null>(null);
   const [importModalSquad, setImportModalSquad] = useState<Squad | null>(null);
   const [csvText, setCsvText] = useState('');
   const [importResult, setImportResult] = useState<any>(null);
   const [importLoading, setImportLoading] = useState(false);
 
-  // Expanded sports accordions
+  // ── Expanded sports accordions ──
   const [expandedSports, setExpandedSports] = useState<Record<string, boolean>>({
-    Kabaddi: true,
-    Badminton: true,
-    Taekwondo: true,
+    Kabaddi: true, Badminton: true, Taekwondo: true,
   });
-
   const toggleSport = (name: string) => {
     setExpandedSports(prev => ({ ...prev, [name]: !prev[name] }));
   };
 
-  // Queries for squad players when assigning Captain
+  // ── Squad player list for captain assignment ──
   const { data: squadPlayers = [] } = useQuery({
     queryKey: ['squad-players', captainModalSquad?.id],
     enabled: !!captainModalSquad,
@@ -50,45 +97,63 @@ export default function SportsManagement() {
   });
 
   // ─── Mutations ─────────────────────────────────────────────────────────────
+
   const createSportMutation = useMutation({
     mutationFn: (data: { name: string; accentColor: string }) => api.post('/sports', data),
-    onSuccess: () => {
-      refreshSports();
-      setNewSportOpen(false);
-      setNewSportName('');
-    },
+    onSuccess: () => { refreshSports(); setNewSportOpen(false); setNewSportName(''); },
     onError: (err: any) => alert(err.response?.data?.message || 'Failed to create sport'),
   });
 
   const updateSportMutation = useMutation({
     mutationFn: ({ id, ...data }: any) => api.patch(`/sports/${id}`, data),
-    onSuccess: () => {
-      refreshSports();
-      setEditingSport(null);
-    },
+    onSuccess: () => { refreshSports(); setEditingSport(null); },
     onError: (err: any) => alert(err.response?.data?.message || 'Failed to update sport'),
+  });
+
+  const deleteSportMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/sports/${id}`),
+    onSuccess: () => { refreshSports(); setDeletingSport(null); queryClient.invalidateQueries(); },
+    onError: (err: any) => { alert(err.response?.data?.message || 'Failed to delete sport'); setDeletingSport(null); },
   });
 
   const createCategoryMutation = useMutation({
     mutationFn: ({ sportId, name }: { sportId: string; name: string }) =>
       api.post(`/sports/${sportId}/categories`, { name }),
-    onSuccess: () => {
-      refreshSports();
-      setNewCategorySportId(null);
-      setNewCategoryName('');
-    },
+    onSuccess: () => { refreshSports(); setNewCategorySportId(null); setNewCategoryName(''); },
     onError: (err: any) => alert(err.response?.data?.message || 'Failed to create category'),
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.patch(`/sports/categories/${id}`, { name }),
+    onSuccess: () => { refreshSports(); setEditingCategory(null); },
+    onError: (err: any) => alert(err.response?.data?.message || 'Failed to update category'),
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/sports/categories/${id}`),
+    onSuccess: () => { refreshSports(); setDeletingCategory(null); queryClient.invalidateQueries(); },
+    onError: (err: any) => { alert(err.response?.data?.message || 'Failed to delete category'); setDeletingCategory(null); },
   });
 
   const createSquadMutation = useMutation({
     mutationFn: ({ categoryId, name }: { categoryId: string; name: string }) =>
       api.post(`/sports/categories/${categoryId}/squads`, { name }),
-    onSuccess: () => {
-      refreshSports();
-      setNewSquadCategoryId(null);
-      setNewSquadName('');
-    },
+    onSuccess: () => { refreshSports(); setNewSquadCategoryId(null); setNewSquadName(''); },
     onError: (err: any) => alert(err.response?.data?.message || 'Failed to create squad'),
+  });
+
+  const updateSquadMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.patch(`/sports/squads/${id}`, { name }),
+    onSuccess: () => { refreshSports(); setEditingSquad(null); },
+    onError: (err: any) => alert(err.response?.data?.message || 'Failed to update squad'),
+  });
+
+  const deleteSquadMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/sports/squads/${id}`),
+    onSuccess: () => { refreshSports(); setDeletingSquad(null); queryClient.invalidateQueries(); },
+    onError: (err: any) => { alert(err.response?.data?.message || 'Failed to delete squad'); setDeletingSquad(null); },
   });
 
   const assignCaptainMutation = useMutation({
@@ -119,16 +184,13 @@ export default function SportsManagement() {
     if (!importModalSquad || !csvText.trim()) return;
     setImportLoading(true);
     setImportResult(null);
-
     try {
-      // Parse CSV rows
       const lines = csvText.trim().split('\n');
       if (lines.length < 2) {
         alert('CSV must contain a header line and at least one data row.');
         setImportLoading(false);
         return;
       }
-
       const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
       const nameIdx = headers.findIndex(h => h.includes('name'));
       const systemIdIdx = headers.findIndex(h => h.includes('system') || h.includes('id'));
@@ -136,13 +198,11 @@ export default function SportsManagement() {
       const courseIdx = headers.findIndex(h => h.includes('course') || h.includes('school'));
       const yearIdx = headers.findIndex(h => h.includes('year'));
       const emailIdx = headers.findIndex(h => h.includes('email'));
-
       if (nameIdx === -1 || systemIdIdx === -1) {
         alert('CSV must include "Name" and "System ID" columns.');
         setImportLoading(false);
         return;
       }
-
       const players = [];
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -151,7 +211,6 @@ export default function SportsManagement() {
         const name = cols[nameIdx];
         const systemId = cols[systemIdIdx];
         if (!name || !systemId) continue;
-
         players.push({
           name,
           systemId: String(systemId),
@@ -161,7 +220,6 @@ export default function SportsManagement() {
           email: emailIdx !== -1 && cols[emailIdx] ? cols[emailIdx] : null,
         });
       }
-
       const res = await api.post(`/sports/squads/${importModalSquad.id}/import`, { players });
       setImportResult(res.data.data);
       queryClient.invalidateQueries();
@@ -183,13 +241,10 @@ export default function SportsManagement() {
             Sports & Squads Management
           </h1>
           <p className="text-zinc-400 text-sm mt-1">
-            Configure sports, categories, squads, captains, and accent colors across Sharda Sports Society.
+            Configure sports, categories, squads, captains, and accent colors. Use the edit/delete buttons to correct any mistakes.
           </p>
         </div>
-        <button
-          onClick={() => setNewSportOpen(true)}
-          className="btn-primary"
-        >
+        <button onClick={() => setNewSportOpen(true)} className="btn-primary">
           <Plus className="w-4 h-4" /> Add Sport
         </button>
       </div>
@@ -209,6 +264,11 @@ export default function SportsManagement() {
                 value={newSportName}
                 onChange={e => setNewSportName(e.target.value)}
                 className="input"
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newSportName.trim()) {
+                    createSportMutation.mutate({ name: newSportName.trim(), accentColor: newSportColor });
+                  }
+                }}
               />
             </div>
             <div>
@@ -251,20 +311,14 @@ export default function SportsManagement() {
           const isExpanded = expandedSports[sport.name] ?? true;
 
           return (
-            <div
-              key={sport.id}
-              className="card overflow-hidden border-surface-border transition-all"
-            >
+            <div key={sport.id} className="card overflow-hidden border-surface-border transition-all">
               {/* Sport Header */}
               <div
                 className="p-4 bg-surface-secondary flex items-center justify-between gap-4 cursor-pointer hover:bg-zinc-800/50 transition-colors"
                 onClick={() => toggleSport(sport.name)}
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-4 h-8 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: sport.accentColor }}
-                  />
+                  <div className="w-4 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: sport.accentColor }} />
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-lg font-bold text-zinc-100">{sport.name}</h2>
@@ -278,9 +332,7 @@ export default function SportsManagement() {
                       >
                         {sport.accentColor}
                       </span>
-                      {!sport.isActive && (
-                        <span className="badge-inactive">Inactive</span>
-                      )}
+                      {!sport.isActive && <span className="badge-inactive">Inactive</span>}
                     </div>
                     <p className="text-xs text-zinc-500 mt-0.5">
                       {sport.categories?.length || 0} categories ·{' '}
@@ -293,18 +345,22 @@ export default function SportsManagement() {
                   <button
                     onClick={() => setEditingSport(sport)}
                     className="btn-ghost btn-sm text-zinc-400 hover:text-zinc-200"
-                    title="Edit Sport details & accent color"
+                    title="Edit sport name & color"
                   >
                     <Edit2 className="w-3.5 h-3.5" /> Edit
                   </button>
                   <button
-                    onClick={() => {
-                      setNewCategorySportId(sport.id);
-                      setNewCategoryName('');
-                    }}
+                    onClick={() => setNewCategorySportId(sport.id)}
                     className="btn-secondary btn-sm"
                   >
                     <Plus className="w-3.5 h-3.5" /> Add Category
+                  </button>
+                  <button
+                    onClick={() => setDeletingSport(sport)}
+                    className="btn-ghost btn-sm text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                    title="Delete sport"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                   <button className="btn-ghost btn-icon p-1 text-zinc-400">
                     {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -312,7 +368,7 @@ export default function SportsManagement() {
                 </div>
               </div>
 
-              {/* Edit Sport Form Modal/Inline */}
+              {/* Edit Sport Inline */}
               {editingSport?.id === sport.id && (
                 <div className="p-4 bg-zinc-900 border-y border-surface-border animate-slide-up">
                   <h4 className="text-sm font-semibold text-zinc-200 mb-2">Edit Sport</h4>
@@ -363,9 +419,10 @@ export default function SportsManagement() {
                         accentColor: editingSport.accentColor,
                         isActive: editingSport.isActive,
                       })}
+                      disabled={updateSportMutation.isPending}
                       className="btn-primary btn-sm"
                     >
-                      Save Changes
+                      {updateSportMutation.isPending ? 'Saving...' : 'Save Changes'}
                     </button>
                   </div>
                 </div>
@@ -384,6 +441,11 @@ export default function SportsManagement() {
                         onChange={e => setNewCategoryName(e.target.value)}
                         className="input text-sm flex-1"
                         autoFocus
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && newCategoryName.trim()) {
+                            createCategoryMutation.mutate({ sportId: sport.id, name: newCategoryName.trim() });
+                          }
+                        }}
                       />
                       <button
                         onClick={() => {
@@ -391,10 +453,11 @@ export default function SportsManagement() {
                           createCategoryMutation.mutate({ sportId: sport.id, name: newCategoryName.trim() });
                         }}
                         className="btn-primary btn-sm"
+                        disabled={createCategoryMutation.isPending}
                       >
-                        Add
+                        {createCategoryMutation.isPending ? 'Adding...' : 'Add'}
                       </button>
-                      <button onClick={() => setNewCategorySportId(null)} className="btn-ghost btn-sm">Cancel</button>
+                      <button onClick={() => { setNewCategorySportId(null); setNewCategoryName(''); }} className="btn-ghost btn-sm">Cancel</button>
                     </div>
                   )}
 
@@ -405,22 +468,67 @@ export default function SportsManagement() {
                     >
                       {/* Category Header */}
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-4 h-4 text-zinc-400" />
-                          <h3 className="font-semibold text-zinc-200">{category.name}</h3>
-                          <span className="text-xs text-zinc-500">
-                            ({category.squads?.length || 0} squads)
-                          </span>
+                        {editingCategory?.id === category.id ? (
+                          <div className="flex items-center gap-2 flex-1 mr-2">
+                            <input
+                              type="text"
+                              value={editingCategory.name}
+                              onChange={e => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                              className="input text-sm flex-1"
+                              autoFocus
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && editingCategory.name.trim()) {
+                                  updateCategoryMutation.mutate({ id: editingCategory.id, name: editingCategory.name.trim() });
+                                }
+                                if (e.key === 'Escape') setEditingCategory(null);
+                              }}
+                            />
+                            <button
+                              onClick={() => updateCategoryMutation.mutate({ id: editingCategory.id, name: editingCategory.name.trim() })}
+                              disabled={updateCategoryMutation.isPending}
+                              className="btn-primary btn-sm text-xs"
+                            >
+                              Save
+                            </button>
+                            <button onClick={() => setEditingCategory(null)} className="btn-ghost btn-sm text-xs">✕</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-zinc-400" />
+                            <h3 className="font-semibold text-zinc-200">{category.name}</h3>
+                            <span className="text-xs text-zinc-500">({category.squads?.length || 0} squads)</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-1">
+                          {editingCategory?.id !== category.id && (
+                            <>
+                              <button
+                                onClick={() => setEditingCategory({ id: category.id, name: category.name })}
+                                className="btn-ghost btn-icon p-1.5 text-zinc-400 hover:text-zinc-200"
+                                title="Rename category"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setDeletingCategory({ id: category.id, name: category.name, sport: sport.name })}
+                                className="btn-ghost btn-icon p-1.5 text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                                title="Delete category"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => {
+                              setNewSquadCategoryId(category.id);
+                              setNewSquadName(`${sport.name} ${category.name}`);
+                            }}
+                            className="btn-ghost btn-sm text-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add Squad
+                          </button>
                         </div>
-                        <button
-                          onClick={() => {
-                            setNewSquadCategoryId(category.id);
-                            setNewSquadName(`${sport.name} ${category.name}`);
-                          }}
-                          className="btn-ghost btn-sm text-xs"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Add Squad
-                        </button>
                       </div>
 
                       {/* Add squad inline form */}
@@ -433,6 +541,11 @@ export default function SportsManagement() {
                             onChange={e => setNewSquadName(e.target.value)}
                             className="input text-xs flex-1"
                             autoFocus
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && newSquadName.trim()) {
+                                createSquadMutation.mutate({ categoryId: category.id, name: newSquadName.trim() });
+                              }
+                            }}
                           />
                           <button
                             onClick={() => {
@@ -440,8 +553,9 @@ export default function SportsManagement() {
                               createSquadMutation.mutate({ categoryId: category.id, name: newSquadName.trim() });
                             }}
                             className="btn-primary btn-sm text-xs"
+                            disabled={createSquadMutation.isPending}
                           >
-                            Save Squad
+                            {createSquadMutation.isPending ? 'Saving...' : 'Save Squad'}
                           </button>
                           <button onClick={() => setNewSquadCategoryId(null)} className="btn-ghost btn-sm text-xs">Cancel</button>
                         </div>
@@ -455,14 +569,57 @@ export default function SportsManagement() {
                             className="p-3 rounded-lg bg-surface-card border border-surface-border flex flex-col justify-between gap-3 hover:border-zinc-700 transition-all"
                           >
                             <div className="flex items-start justify-between">
-                              <div>
-                                <h4 className="font-bold text-zinc-100 text-sm">{squad.name}</h4>
+                              <div className="flex-1 min-w-0">
+                                {editingSquad?.id === squad.id ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="text"
+                                      value={editingSquad.name}
+                                      onChange={e => setEditingSquad({ ...editingSquad, name: e.target.value })}
+                                      className="input text-xs flex-1"
+                                      autoFocus
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter' && editingSquad.name.trim()) {
+                                          updateSquadMutation.mutate({ id: editingSquad.id, name: editingSquad.name.trim() });
+                                        }
+                                        if (e.key === 'Escape') setEditingSquad(null);
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => updateSquadMutation.mutate({ id: editingSquad.id, name: editingSquad.name.trim() })}
+                                      disabled={updateSquadMutation.isPending}
+                                      className="btn-primary btn-sm text-[10px] py-1 px-2"
+                                    >✓</button>
+                                    <button onClick={() => setEditingSquad(null)} className="btn-ghost btn-sm text-[10px] py-1 px-2">✕</button>
+                                  </div>
+                                ) : (
+                                  <h4 className="font-bold text-zinc-100 text-sm">{squad.name}</h4>
+                                )}
                                 <div className="flex items-center gap-2 mt-1 text-xs text-zinc-400">
                                   <Users className="w-3 h-3 text-zinc-500" />
                                   <span>{squad._count?.players ?? '—'} active players</span>
                                 </div>
                               </div>
-                              <span className="badge-active text-[10px]">Active</span>
+                              <div className="flex items-center gap-1 ml-2">
+                                {editingSquad?.id !== squad.id && (
+                                  <>
+                                    <button
+                                      onClick={() => setEditingSquad({ id: squad.id, name: squad.name })}
+                                      className="btn-ghost btn-icon p-1 text-zinc-500 hover:text-zinc-200"
+                                      title="Rename squad"
+                                    >
+                                      <Edit2 className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeletingSquad({ id: squad.id, name: squad.name, category: category.name })}
+                                      className="btn-ghost btn-icon p-1 text-red-500 hover:text-red-400 hover:bg-red-950/30"
+                                      title="Delete squad"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
 
                             {/* Squad Actions */}
@@ -488,12 +645,10 @@ export default function SportsManagement() {
                               </button>
 
                               <button
-                                onClick={() => {
-                                  setActiveSquadId(squad.id);
-                                }}
+                                onClick={() => setActiveSquadId(squad.id)}
                                 className="btn-ghost btn-sm text-xs ml-auto text-brand-400 hover:text-brand-300 py-1 px-2"
                               >
-                                Switch to Squad →
+                                Switch to Squad <ArrowRight className="w-3 h-3" />
                               </button>
                             </div>
                           </div>
@@ -508,7 +663,40 @@ export default function SportsManagement() {
         })}
       </div>
 
-      {/* ── Assign Captain Modal ─────────────────────────────────────────────── */}
+      {/* ── Confirm Delete: Sport ─────────────────────────────────────────────── */}
+      {deletingSport && (
+        <ConfirmDelete
+          title={`Delete Sport: ${deletingSport.name}?`}
+          message={`This will permanently delete "${deletingSport.name}", all its categories, squads, and session history. Players must be deactivated first. This action CANNOT be undone.`}
+          onConfirm={() => deleteSportMutation.mutate(deletingSport.id)}
+          onCancel={() => setDeletingSport(null)}
+          isPending={deleteSportMutation.isPending}
+        />
+      )}
+
+      {/* ── Confirm Delete: Category ─────────────────────────────────────────── */}
+      {deletingCategory && (
+        <ConfirmDelete
+          title={`Delete Category: ${deletingCategory.name}?`}
+          message={`This will permanently delete the "${deletingCategory.name}" category under ${deletingCategory.sport}, including all its squads and attendance history. Active players must be deactivated first.`}
+          onConfirm={() => deleteCategoryMutation.mutate(deletingCategory.id)}
+          onCancel={() => setDeletingCategory(null)}
+          isPending={deleteCategoryMutation.isPending}
+        />
+      )}
+
+      {/* ── Confirm Delete: Squad ────────────────────────────────────────────── */}
+      {deletingSquad && (
+        <ConfirmDelete
+          title={`Delete Squad: ${deletingSquad.name}?`}
+          message={`This will permanently delete the "${deletingSquad.name}" squad (under ${deletingSquad.category}), along with all its attendance sessions and records. Active players must be deactivated or transferred first.`}
+          onConfirm={() => deleteSquadMutation.mutate(deletingSquad.id)}
+          onCancel={() => setDeletingSquad(null)}
+          isPending={deleteSquadMutation.isPending}
+        />
+      )}
+
+      {/* ── Assign Captain Modal ──────────────────────────────────────────────── */}
       {captainModalSquad && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
           <div className="card p-5 max-w-md w-full bg-surface-card border-surface-border space-y-4 animate-slide-up">
@@ -578,7 +766,7 @@ export default function SportsManagement() {
         </div>
       )}
 
-      {/* ── CSV Import Modal ─────────────────────────────────────────────────── */}
+      {/* ── CSV Import Modal ──────────────────────────────────────────────────── */}
       {importModalSquad && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
           <div className="card p-5 max-w-lg w-full bg-surface-card border-surface-border space-y-4 animate-slide-up">
@@ -606,7 +794,7 @@ export default function SportsManagement() {
               rows={6}
               value={csvText}
               onChange={e => setCsvText(e.target.value)}
-              placeholder="Name,System ID,Jersey Number,Course,Year,Email&#10;John Doe,2025112233,7,B.Tech,2nd,john@sharda.ac.in"
+              placeholder={`Name,System ID,Jersey Number,Course,Year,Email\nJohn Doe,2025112233,7,B.Tech,2nd,john@sharda.ac.in`}
               className="input font-mono text-xs w-full"
             />
 

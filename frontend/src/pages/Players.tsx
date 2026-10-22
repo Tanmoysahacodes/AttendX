@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSquad } from '../context/SquadContext';
 import {
   UserPlus, Shield, Download, Upload, X,
-  ChevronRight, Edit2
+  ChevronRight, Edit2, Trash2, AlertTriangle
 } from 'lucide-react';
 import api from '../lib/api';
 import { getInitials, formatDate, exportFile } from '../lib/utils';
@@ -34,6 +34,7 @@ const playerEditSchema = z.object({
   course: z.string().optional().or(z.literal('')),
   year: z.string().optional().or(z.literal('')),
   email: z.string().optional().or(z.literal('')),
+  squadId: z.string().optional().or(z.literal('')),
 });
 
 // Player Profile Modal
@@ -191,10 +192,18 @@ export default function Players() {
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+  const [confirmDeletePlayer, setConfirmDeletePlayer] = useState<any>(null);
 
   const { data: players = [], isLoading } = useQuery({
     queryKey: ['players', activeSquad?.id],
     queryFn: () => api.get('/players', { params: { squadId: activeSquad?.id } }).then(r => r.data.data),
+  });
+
+  // Load all squads for the squad-transfer dropdown in the edit modal
+  const { data: allSports = [] } = useQuery({
+    queryKey: ['sports-for-transfer'],
+    queryFn: () => api.get('/sports').then(r => r.data.data),
+    enabled: role === 'ADMIN',
   });
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
@@ -258,6 +267,19 @@ export default function Players() {
     mutationFn: ({ id, active }: { id: string, active: boolean }) =>
       api.post(`/players/${id}/${active ? 'deactivate' : 'reactivate'}`),
     onSuccess: () => queryClient.invalidateQueries(),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/players/${id}`),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries();
+      setConfirmDeletePlayer(null);
+      if (selectedPlayer?.id === id) setSelectedPlayer(null);
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Failed to delete player.');
+      setConfirmDeletePlayer(null);
+    },
   });
 
   const importMutation = useMutation({
@@ -473,9 +495,16 @@ export default function Players() {
                           )}
                           <button
                             onClick={() => { if (confirm(`${p.status === 'ACTIVE' ? 'Deactivate' : 'Reactivate'} ${p.name}?`)) toggleStatusMutation.mutate({ id: p.id, active: p.status === 'ACTIVE' }); }}
-                            className={`btn-ghost btn-sm text-xs ${p.status === 'ACTIVE' ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
+                            className={`btn-ghost btn-sm text-xs ${p.status === 'ACTIVE' ? 'text-amber-400 hover:text-amber-300' : 'text-green-400 hover:text-green-300'}`}
                           >
                             {p.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeletePlayer(p)}
+                            className="btn-ghost btn-icon text-red-500 hover:text-red-400 hover:bg-red-950/30"
+                            title="Permanently delete player"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                           <ChevronRight className="w-4 h-4 text-zinc-600" />
                         </div>
@@ -553,11 +582,16 @@ export default function Players() {
       {/* Edit Player Modal */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="card w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-1 text-zinc-100">Edit Player — {showEditModal.name}</h2>
-            <p className="text-xs text-zinc-400 mb-4">
-              System ID: <strong className="font-mono text-zinc-200">{showEditModal.systemId || 'N/A'}</strong>
-            </p>
+          <div className="card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-zinc-100">Edit Player</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">Editing: <strong className="text-zinc-200">{showEditModal.name}</strong></p>
+              </div>
+              <button onClick={() => { setShowEditModal(null); resetEdit(); }} className="btn-ghost btn-icon">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             <form onSubmit={handleEditSubmit(data => editMutation.mutate({ id: showEditModal.id, data }))} className="space-y-3">
               <div>
                 <label className="label">Full Name</label>
@@ -565,12 +599,18 @@ export default function Players() {
                 {editErrors.name && <p className="text-red-400 text-xs mt-1">{editErrors.name.message as string}</p>}
               </div>
               <div>
-                <label className="label">System ID</label>
+                <label className="label">System ID (login credential)</label>
                 <input {...regEdit('systemId')} className="input font-mono" placeholder="e.g. 2025265270" />
               </div>
-              <div>
-                <label className="label">Jersey Number (Optional — clear to remove)</label>
-                <input {...regEdit('jerseyNumber')} className="input" placeholder="Leave empty for none" />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">Jersey Number</label>
+                  <input {...regEdit('jerseyNumber')} className="input" placeholder="Leave empty for none" />
+                </div>
+                <div>
+                  <label className="label">Position</label>
+                  <input {...regEdit('position')} className="input" />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -582,21 +622,40 @@ export default function Players() {
                   <input {...regEdit('year')} className="input" />
                 </div>
               </div>
-              <div>
-                <label className="label">Position</label>
-                <input {...regEdit('position')} className="input" />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">Email</label>
+                  <input {...regEdit('email')} className="input" />
+                </div>
+                <div>
+                  <label className="label">Phone</label>
+                  <input {...regEdit('phone')} className="input" />
+                </div>
               </div>
+              {/* Squad Transfer */}
               <div>
-                <label className="label">Email</label>
-                <input {...regEdit('email')} className="input" />
-              </div>
-              <div>
-                <label className="label">Phone</label>
-                <input {...regEdit('phone')} className="input" />
+                <label className="label">Transfer to Squad</label>
+                <select
+                  {...regEdit('squadId')}
+                  className="input"
+                  defaultValue={showEditModal.squadId || ''}
+                >
+                  <option value="">— No Squad —</option>
+                  {allSports.map((sport: any) =>
+                    sport.categories?.map((cat: any) =>
+                      cat.squads?.map((sq: any) => (
+                        <option key={sq.id} value={sq.id}>
+                          {sport.name} › {cat.name} › {sq.name}
+                        </option>
+                      ))
+                    )
+                  )}
+                </select>
+                <p className="text-[11px] text-zinc-500 mt-1">Move this player to a different squad. Leave as-is if no change needed.</p>
               </div>
               <div>
                 <label className="label">Description / Bio</label>
-                <textarea {...regEdit('description')} className="input min-h-[70px] resize-none" />
+                <textarea {...regEdit('description')} className="input min-h-[60px] resize-none" />
               </div>
               <div className="flex justify-end gap-2 mt-6">
                 <button type="button" onClick={() => { setShowEditModal(null); resetEdit(); }} className="btn-ghost">Cancel</button>
@@ -605,6 +664,35 @@ export default function Players() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Player Modal */}
+      {confirmDeletePlayer && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 animate-fade-in">
+          <div className="card p-5 max-w-sm w-full bg-red-950/60 border-red-800/50 space-y-4 animate-slide-up">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-red-900/60 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <h3 className="font-bold text-zinc-100 text-base">Delete {confirmDeletePlayer.name}?</h3>
+            </div>
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              This will <strong>permanently delete</strong> <span className="text-zinc-100">{confirmDeletePlayer.name}</span> (ID: <code className="font-mono text-xs">{confirmDeletePlayer.systemId}</code>) and all their attendance records.
+              <br /><br />
+              <span className="text-amber-400 text-xs">💡 Tip: Use "Deactivate" instead if you want to preserve their attendance history.</span>
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setConfirmDeletePlayer(null)} className="btn-ghost btn-sm">Cancel</button>
+              <button
+                onClick={() => deleteMutation.mutate(confirmDeletePlayer.id)}
+                disabled={deleteMutation.isPending}
+                className="btn-danger btn-sm"
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete Permanently'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -276,6 +276,28 @@ router.post('/:id/reactivate', requireAuth, requireRole('ADMIN'), async (req, re
   }
 });
 
+// ─── Hard delete player (Admin only) ─────────────────────────────────────────
+// Removes player and ALL their attendance records permanently.
+router.delete('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const player = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!player) return res.status(404).json({ success: false, message: 'Player not found' });
+    if (['ADMIN', 'SPORTS_OFFICER'].includes(player.role)) {
+      return res.status(400).json({ success: false, message: 'Staff accounts cannot be deleted from this endpoint.' });
+    }
+
+    // Delete attendance records first (FK constraint)
+    await prisma.attendanceRecord.deleteMany({ where: { playerId: req.params.id } });
+    await prisma.user.delete({ where: { id: req.params.id } });
+    await prisma.auditLog.create({
+      data: { userId: req.user.id, action: 'PLAYER_DELETED', entityType: 'USER', entityId: req.params.id, metadata: { name: player.name, systemId: player.systemId } },
+    });
+    res.json({ success: true, message: `${player.name} has been permanently deleted.` });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 // ─── Get own attendance (for any authenticated user) ─────────────────────────
 router.get('/:id/attendance', requireAuth, async (req, res) => {
   try {

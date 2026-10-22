@@ -227,6 +227,109 @@ router.patch('/squads/:id', requireAuth, requireRole('ADMIN'), async (req, res) 
   }
 });
 
+// ─── Delete sport (Admin only) ────────────────────────────────────────────────
+router.delete('/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const sport = await prisma.sport.findUnique({
+      where: { id: req.params.id },
+      include: {
+        categories: {
+          include: {
+            squads: {
+              include: { _count: { select: { players: { where: { role: { in: ['PLAYER', 'CAPTAIN'] }, status: 'ACTIVE' } } } } }
+            }
+          }
+        }
+      }
+    });
+    if (!sport) return res.status(404).json({ success: false, message: 'Sport not found' });
+
+    const totalPlayers = sport.categories.reduce((acc, cat) =>
+      acc + cat.squads.reduce((a, sq) => a + (sq._count?.players ?? 0), 0), 0);
+    if (totalPlayers > 0) {
+      return res.status(400).json({ success: false, message: `Cannot delete "${sport.name}" — it has ${totalPlayers} active player(s). Deactivate all players first.` });
+    }
+
+    // Delete in order: records → sessions → squads → categories → sport
+    for (const cat of sport.categories) {
+      for (const sq of cat.squads) {
+        await prisma.attendanceRecord.deleteMany({ where: { session: { squadId: sq.id } } });
+        await prisma.attendanceSession.deleteMany({ where: { squadId: sq.id } });
+        await prisma.squad.delete({ where: { id: sq.id } });
+      }
+      await prisma.category.delete({ where: { id: cat.id } });
+    }
+    await prisma.sport.delete({ where: { id: req.params.id } });
+    await prisma.auditLog.create({
+      data: { userId: req.user.id, action: 'SPORT_DELETED', entityType: 'SPORT', entityId: req.params.id, metadata: { name: sport.name } },
+    });
+    res.json({ success: true, message: `Sport "${sport.name}" deleted.` });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// ─── Delete category (Admin only) ─────────────────────────────────────────────
+router.delete('/categories/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const category = await prisma.category.findUnique({
+      where: { id: req.params.id },
+      include: {
+        squads: {
+          include: { _count: { select: { players: { where: { role: { in: ['PLAYER', 'CAPTAIN'] }, status: 'ACTIVE' } } } } }
+        },
+        sport: true,
+      }
+    });
+    if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
+
+    const totalPlayers = category.squads.reduce((a, sq) => a + (sq._count?.players ?? 0), 0);
+    if (totalPlayers > 0) {
+      return res.status(400).json({ success: false, message: `Cannot delete "${category.name}" — it has ${totalPlayers} active player(s). Deactivate them first.` });
+    }
+
+    for (const sq of category.squads) {
+      await prisma.attendanceRecord.deleteMany({ where: { session: { squadId: sq.id } } });
+      await prisma.attendanceSession.deleteMany({ where: { squadId: sq.id } });
+      await prisma.squad.delete({ where: { id: sq.id } });
+    }
+    await prisma.category.delete({ where: { id: req.params.id } });
+    await prisma.auditLog.create({
+      data: { userId: req.user.id, action: 'CATEGORY_DELETED', entityType: 'CATEGORY', entityId: req.params.id, metadata: { name: category.name, sport: category.sport.name } },
+    });
+    res.json({ success: true, message: `Category "${category.name}" deleted.` });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// ─── Delete squad (Admin only) ────────────────────────────────────────────────
+router.delete('/squads/:id', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const squad = await prisma.squad.findUnique({
+      where: { id: req.params.id },
+      include: {
+        _count: { select: { players: { where: { role: { in: ['PLAYER', 'CAPTAIN'] }, status: 'ACTIVE' } } } },
+        category: { include: { sport: true } },
+      }
+    });
+    if (!squad) return res.status(404).json({ success: false, message: 'Squad not found' });
+    if ((squad._count?.players ?? 0) > 0) {
+      return res.status(400).json({ success: false, message: `Cannot delete "${squad.name}" — it has ${squad._count.players} active player(s). Deactivate or transfer them first.` });
+    }
+
+    await prisma.attendanceRecord.deleteMany({ where: { session: { squadId: squad.id } } });
+    await prisma.attendanceSession.deleteMany({ where: { squadId: squad.id } });
+    await prisma.squad.delete({ where: { id: req.params.id } });
+    await prisma.auditLog.create({
+      data: { userId: req.user.id, action: 'SQUAD_DELETED', entityType: 'SQUAD', entityId: req.params.id, metadata: { name: squad.name } },
+    });
+    res.json({ success: true, message: `Squad "${squad.name}" deleted.` });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 // ─── Assign Captain per squad (Admin only) ────────────────────────────────────
 router.post('/squads/:squadId/captain/assign', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
