@@ -155,7 +155,7 @@ export default function Login() {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
                   type="text"
-                  placeholder="Enter name or User ID (e.g. Ajit)"
+                  placeholder="Enter full name or User ID"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   className="input pl-10"
@@ -170,7 +170,7 @@ export default function Login() {
                 <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter System ID (e.g. 155098)"
+                  placeholder="Enter System ID (e.g. 202XXXXXXX)"
                   value={systemId}
                   onChange={e => setSystemId(e.target.value)}
                   className="input pl-10 pr-10"
@@ -198,7 +198,7 @@ export default function Login() {
               <label className="label">User ID / Username</label>
               <input
                 type="text"
-                placeholder="Admin / Coach"
+                placeholder="admin / coach"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 className="input"
@@ -211,7 +211,7 @@ export default function Login() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter password (e.g. admin@123)"
+                  placeholder="Enter password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   className="input pr-10"

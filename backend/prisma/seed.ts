@@ -49,7 +49,7 @@ async function main() {
     },
   });
 
-  // Seed player Ajit
+  // Seed admin Ajit (ADMIN who also plays with jersey 18)
   const ajitPass = '155098';
   const ajitHash = await bcrypt.hash(ajitPass, 10);
   await prisma.user.upsert({
@@ -58,7 +58,7 @@ async function main() {
       name: 'Ajit',
       username: 'ajit',
       passwordHash: ajitHash,
-      role: 'PLAYER',
+      role: 'ADMIN',
       status: 'ACTIVE',
       jerseyNumber: '18',
       position: 'Left Corner',
@@ -70,7 +70,7 @@ async function main() {
       passwordHash: ajitHash,
       jerseyNumber: '18',
       systemId: '202526527',
-      role: 'PLAYER',
+      role: 'ADMIN',
       status: 'ACTIVE',
       position: 'Left Corner',
       description: 'Strong defensive player known for ankle holds, diving tackles, blocks and chain tackles. Aggressive and effective in pressure situations.'
